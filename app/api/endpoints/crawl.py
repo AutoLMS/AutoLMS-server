@@ -1,0 +1,79 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, Optional
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_db
+from app.services.eclass_service import EclassService
+
+router = APIRouter()
+
+@router.post("/all")
+async def crawl_all_courses(
+    auto_download: Optional[bool] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    eclass_service: EclassService = Depends(lambda: EclassService())
+) -> Any:
+    """모든 강의 자동 크롤링 시작"""
+    result = await eclass_service.crawl_all_courses(
+        user_id=current_user["id"],
+        db_session=db,
+        auto_download=auto_download
+    )
+    
+    return result
+
+@router.post("/course/{course_id}")
+async def crawl_specific_course(
+    course_id: str,
+    auto_download: Optional[bool] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    eclass_service: EclassService = Depends(lambda: EclassService())
+) -> Any:
+    """특정 강의 자동 크롤링 시작"""
+    result = await eclass_service.crawl_course(
+        user_id=current_user["id"],
+        course_id=course_id,
+        db_session=db,
+        auto_download=auto_download
+    )
+    
+    return result
+
+@router.get("/status/{task_id}")
+async def get_crawling_status(
+    task_id: str,
+    current_user: dict = Depends(get_current_user),
+    eclass_service: EclassService = Depends(lambda: EclassService())
+) -> Any:
+    """크롤링 작업 상태 조회"""
+    status = await eclass_service.get_task_status(task_id)
+    
+    if status.get("status") == "not_found":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"작업 ID {task_id}를 찾을 수 없습니다"
+        )
+    
+    return status
+
+@router.post("/cancel/{task_id}")
+async def cancel_crawling_task(
+    task_id: str,
+    current_user: dict = Depends(get_current_user),
+    eclass_service: EclassService = Depends(lambda: EclassService())
+) -> Any:
+    """크롤링 작업 취소"""
+    cancelled = await eclass_service.cancel_task(task_id)
+    
+    if not cancelled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"작업 ID {task_id}를 찾을 수 없거나 이미 완료된 작업입니다"
+        )
+    
+    return {
+        "status": "success",
+        "message": f"작업 ID {task_id}가 취소되었습니다"
+    }
