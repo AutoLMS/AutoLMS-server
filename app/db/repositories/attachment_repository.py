@@ -15,7 +15,7 @@ class AttachmentRepository(BaseRepository[Attachment]):
         소스별 첨부파일 목록 조회
         반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
         """
-        return db.query(self.model).filter(
+        return db.query(self.model).filter( 
             self.model.source_type == source_type,
             self.model.source_id == source_id
         ).all()

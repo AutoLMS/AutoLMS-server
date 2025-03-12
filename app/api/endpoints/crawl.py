@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Any, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db_session, get_eclass_service
 from app.services.eclass_service import EclassService
 
 router = APIRouter()
 
 @router.post("/all")
 async def crawl_all_courses(
-    auto_download: Optional[bool] = None,
-    db: Session = Depends(get_db),
+    auto_download: Optional[bool] = False,
+    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(lambda: EclassService())
+    eclass_service: EclassService = Depends(get_eclass_service)
 ) -> Any:
     """모든 강의 자동 크롤링 시작"""
     result = await eclass_service.crawl_all_courses(
@@ -26,10 +26,10 @@ async def crawl_all_courses(
 @router.post("/course/{course_id}")
 async def crawl_specific_course(
     course_id: str,
-    auto_download: Optional[bool] = None,
-    db: Session = Depends(get_db),
+    auto_download: Optional[bool] = False,
+    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(lambda: EclassService())
+    eclass_service: EclassService = Depends(get_eclass_service)
 ) -> Any:
     """특정 강의 자동 크롤링 시작"""
     result = await eclass_service.crawl_course(
@@ -45,7 +45,7 @@ async def crawl_specific_course(
 async def get_crawling_status(
     task_id: str,
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(lambda: EclassService())
+    eclass_service: EclassService = Depends(get_eclass_service)
 ) -> Any:
     """크롤링 작업 상태 조회"""
     status = await eclass_service.get_task_status(task_id)
@@ -62,7 +62,7 @@ async def get_crawling_status(
 async def cancel_crawling_task(
     task_id: str,
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(lambda: EclassService())
+    eclass_service: EclassService = Depends(get_eclass_service)
 ) -> Any:
     """크롤링 작업 취소"""
     cancelled = await eclass_service.cancel_task(task_id)
