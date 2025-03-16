@@ -79,6 +79,7 @@ class EclassService:
         for course in courses:
             course_id = course['id']
             course_dict = {
+                'id': course_id,  # 테스트에서 예상하는 'id' 키 추가
                 'eclass_id': course_id,
                 'user_id': user_id,
                 'name': course['name'],
@@ -151,7 +152,7 @@ class EclassService:
         }
 
     async def _crawl_course_task(self, user_id: str, course_id: str, db_session, auto_download: bool, task_id: str) -> \
-    Dict[str, Any]:
+            Dict[str, Any]:
         """
         강의 크롤링 작업 수행
 
@@ -167,6 +168,12 @@ class EclassService:
         """
         try:
             # 작업 상태 업데이트
+            if task_id not in self.active_tasks:
+                self.active_tasks[task_id] = {
+                    "status": "running",
+                    "start_time": datetime.now().isoformat(),
+                }
+
             self.active_tasks[task_id]["status"] = "processing"
 
             # 크롤링 결과 저장
@@ -218,9 +225,10 @@ class EclassService:
                 result["details"]["assignments"] = assignment_result
 
             # 작업 완료
-            self.active_tasks[task_id]["status"] = "completed"
-            self.active_tasks[task_id]["end_time"] = datetime.now().isoformat()
-            self.active_tasks[task_id]["result"] = result
+            if task_id in self.active_tasks:
+                self.active_tasks[task_id]["status"] = "completed"
+                self.active_tasks[task_id]["end_time"] = datetime.now().isoformat()
+                self.active_tasks[task_id]["result"] = result
 
             logger.info(f"강의 크롤링 작업 완료: {task_id}")
             return result
@@ -229,9 +237,10 @@ class EclassService:
             logger.exception(f"강의 크롤링 작업 중 오류 발생: {e}")
 
             # 작업 실패
-            self.active_tasks[task_id]["status"] = "failed"
-            self.active_tasks[task_id]["error"] = str(e)
-            self.active_tasks[task_id]["end_time"] = datetime.now().isoformat()
+            if task_id in self.active_tasks:
+                self.active_tasks[task_id]["status"] = "failed"
+                self.active_tasks[task_id]["error"] = str(e)
+                self.active_tasks[task_id]["end_time"] = datetime.now().isoformat()
 
             return {
                 "task_id": task_id,
@@ -589,6 +598,202 @@ class EclassService:
             "message": f"모든 강의 크롤링 작업이 시작되었습니다 ({len(courses)}개)",
             "courses": [course["name"] for course in courses]
         }
+
+    async def get_notices(self, user_id: str, course_id: str, db_session) -> List[Dict[str, Any]]:
+        """
+        특정 강의의 공지사항 조회
+
+        Args:
+            user_id: 사용자 ID
+            course_id: 강의 ID
+            db_session: 데이터베이스 세션
+
+        Returns:
+            List[Dict[str, Any]]: 공지사항 목록
+        """
+        logger.info(f"사용자 {user_id}의 강의 {course_id} 공지사항 조회")
+
+        # 레포지토리 초기화
+        notice_repo = NoticeRepository(db_session)
+        attachment_repo = AttachmentRepository(db_session)
+
+        # 저장된 공지사항 가져오기
+        notices = await notice_repo.get_by_course_id(course_id)
+
+        # 공지사항 정보와 첨부파일 정보 조합
+        result = []
+        for notice in notices:
+            notice_dict = notice.to_dict()
+
+            # 첨부파일 조회
+            attachments = await attachment_repo.get_by_source(notice.id, "notices")
+            notice_dict["attachments"] = [attachment.to_dict() for attachment in attachments]
+
+            result.append(notice_dict)
+
+        logger.info(f"강의 {course_id}의 공지사항 {len(result)}개 반환")
+        return result
+
+    async def get_materials(self, user_id: str, course_id: str, db_session) -> List[Dict[str, Any]]:
+        """
+        특정 강의의 강의자료 조회
+
+        Args:
+            user_id: 사용자 ID
+            course_id: 강의 ID
+            db_session: 데이터베이스 세션
+
+        Returns:
+            List[Dict[str, Any]]: 강의자료 목록
+        """
+        logger.info(f"사용자 {user_id}의 강의 {course_id} 강의자료 조회")
+
+        # 레포지토리 초기화
+        material_repo = MaterialRepository(db_session)
+        attachment_repo = AttachmentRepository(db_session)
+
+        # 저장된 강의자료 가져오기
+        materials = await material_repo.get_by_course_id(course_id)
+
+        # 강의자료 정보와 첨부파일 정보 조합
+        result = []
+        for material in materials:
+            material_dict = material.to_dict()
+
+            # 첨부파일 조회
+            attachments = await attachment_repo.get_by_source(material.id, "lecture_materials")
+            material_dict["attachments"] = [attachment.to_dict() for attachment in attachments]
+
+            result.append(material_dict)
+
+        logger.info(f"강의 {course_id}의 강의자료 {len(result)}개 반환")
+        return result
+
+    async def get_assignments(self, user_id: str, course_id: str, db_session) -> List[Dict[str, Any]]:
+        """
+        특정 강의의 과제 조회
+
+        Args:
+            user_id: 사용자 ID
+            course_id: 강의 ID
+            db_session: 데이터베이스 세션
+
+        Returns:
+            List[Dict[str, Any]]: 과제 목록
+        """
+        logger.info(f"사용자 {user_id}의 강의 {course_id} 과제 조회")
+
+        # 레포지토리 초기화
+        assignment_repo = AssignmentRepository(db_session)
+        attachment_repo = AttachmentRepository(db_session)
+
+        # 저장된 과제 가져오기
+        assignments = await assignment_repo.get_by_course_id(course_id)
+
+        # 과제 정보와 첨부파일 정보 조합
+        result = []
+        for assignment in assignments:
+            assignment_dict = assignment.to_dict()
+
+            # 첨부파일 조회
+            attachments = await attachment_repo.get_by_source(assignment.id, "assignments")
+            assignment_dict["attachments"] = [attachment.to_dict() for attachment in attachments]
+
+            result.append(assignment_dict)
+
+        logger.info(f"강의 {course_id}의 과제 {len(result)}개 반환")
+        return result
+
+    async def get_task_status(self, task_id: str) -> Dict[str, Any]:
+        """
+        작업 상태 조회
+
+        Args:
+            task_id: 작업 ID
+
+        Returns:
+            Dict[str, Any]: 작업 상태 정보
+        """
+        logger.info(f"작업 {task_id} 상태 조회")
+
+        if task_id not in self.active_tasks:
+            logger.warning(f"존재하지 않는 작업 ID: {task_id}")
+            return {
+                "task_id": task_id,
+                "status": "not_found",
+                "message": "존재하지 않는 작업입니다."
+            }
+
+        task_info = self.active_tasks[task_id]
+        result = {
+            "task_id": task_id,
+            "status": task_info["status"],
+        }
+
+        # 추가 정보가 있으면 포함
+        for key in ["start_time", "end_time", "course_id", "user_id", "message", "result"]:
+            if key in task_info:
+                result[key] = task_info[key]
+
+        return result
+
+    async def cancel_task(self, task_id: str) -> bool:
+        """
+
+        작업 취소
+
+        Args:
+            task_id: 작업 ID
+
+        Returns:
+            bool: 취소 성공 여부
+        """
+        logger.info(f"작업 {task_id} 취소 요청")
+
+        if task_id not in self.active_tasks:
+            logger.warning(f"존재하지 않는 작업 ID: {task_id}")
+            return False
+
+        task_info = self.active_tasks[task_id]
+
+        # 이미 완료된 작업은 취소할 수 없음
+        if task_info["status"] in ["completed", "failed", "canceled"]:
+            logger.warning(f"이미 {task_info['status']} 상태인 작업은 취소할 수 없습니다: {task_id}")
+            return False
+
+        # 작업 취소 - AsyncMock를 위해 await 없이 직접 호출
+        if "task" in task_info and not task_info["task"].done():
+            task_info["task"].cancel()
+            await asyncio.sleep(0)  # 태스크 상태 반영 대기
+
+        # 상태 업데이트
+        task_info["status"] = "canceled"
+        task_info["end_time"] = datetime.now().isoformat()
+
+        logger.info(f"작업 {task_id} 취소 완료")
+        return True
+
+    # close 메서드 수정 제안
+    async def close(self) -> None:
+        """
+        서비스 종료 및 리소스 정리
+        """
+        logger.info("EclassService 종료 시작")
+
+        # 실행 중인 모든 작업 취소
+        for task_id, task_info in self.active_tasks.items():
+            if task_info.get("status") in ["running", "processing"]:
+                if "task" in task_info and not task_info["task"].done():
+                    logger.info(f"작업 {task_id} 취소")
+                    task_info["task"].cancel()
+                    await asyncio.sleep(0)  # 태스크 상태 반영 대기
+
+                task_info["status"] = "canceled"
+                task_info["end_time"] = datetime.now().isoformat()
+
+        # 세션 종료
+        await self.session.close()
+        logger.info("EclassService 종료 완료")
 
     async def _crawl_all_courses_task(self, user_id: str, courses: List[Dict[str, Any]], db_session,
                                       auto_download: bool, task_id: str) -> Dict[str, Any]:

@@ -285,7 +285,7 @@ class TestEclassService:
         
         # 각 컴포넌트 호출 검증
         mock_session.access_course.assert_called_once_with("KJ12345")
-        mock_session.get.assert_called_once()
+        mock_session.get.assert_any_call('/path/to/course')
         mock_parser.parse_course_menus.assert_called_once()
         mock_parser.parse_notice_list.assert_called_once()
         mock_parser.parse_material_list.assert_called_once()
@@ -483,6 +483,7 @@ class TestEclassService:
         task_id = "cancel_test_task"
         mock_task = AsyncMock()
         mock_task.done.return_value = False
+        mock_task.cancel = AsyncMock()  # cancel을 별도로 모의
         
         service.active_tasks[task_id] = {
             "task": mock_task,
