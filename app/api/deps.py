@@ -1,9 +1,10 @@
-from typing import Generator, Optional
+from typing import Generator, Optional, Any, AsyncGenerator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.db.base import AsyncSessionLocal
 from app.services.auth_service import AuthService
 from app.services.eclass_service import EclassService
 from app.services.eclass_session import EclassSession
@@ -48,7 +49,10 @@ async def get_current_user(
     return await auth_service.get_current_user(token)
 
 # 데이터베이스 세션 의존성
-async def get_db_session() -> Generator[AsyncSession, None, None]:
+async def get_db_session():
     """데이터베이스 세션 제공"""
-    async with get_db() as session:
-        yield session
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()

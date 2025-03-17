@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from typing import Any
 
 from app.schemas.auth import UserCreate, Token, UserOut
 from app.services.auth_service import AuthService
-from app.api.deps import get_auth_service
+from app.api.deps import get_auth_service, get_current_user
 
 router = APIRouter()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 @router.post("/register", response_model=UserOut)
 async def register(
@@ -45,9 +47,15 @@ async def login(
 
 @router.post("/logout")
 async def logout(
-    auth_service: AuthService = Depends(get_auth_service),
-    token: str = Depends(get_auth_service)
+    token: str = Depends(oauth2_scheme),  # 헤더에서 직접 토큰을 가져옴
+    auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
     """로그아웃"""
-    await auth_service.logout(token)
-    return {"message": "로그아웃 성공"}
+    try:
+        result = await auth_service.logout(token)
+        return {"message": "로그아웃 성공"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )

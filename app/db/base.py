@@ -1,6 +1,6 @@
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 
 from app.core.config import settings
 
@@ -8,10 +8,15 @@ from app.core.config import settings
 Base = declarative_base()
 
 # 엔진 생성
-engine = create_engine(settings.SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
+engine = create_async_engine(settings.SQLALCHEMY_DATABASE_URI, pool_pre_ping=True, echo=True)
 
 # 세션 팩토리 생성
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
 
 # 모든 모델 클래스 임포트
 # 이렇게 하면 Base 클래스의 metadata에 모든 모델이 등록됨
