@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, courses, notices, materials, assignments, attachments, crawl
+from app.api.endpoints import auth, courses, notices, materials, assignments, attachments, crawl, syllabus
 
 api_router = APIRouter()
 
@@ -17,3 +17,6 @@ api_router.include_router(crawl.router, prefix="/crawl", tags=["크롤링"])
 
 # 첨부파일 관련 엔드포인트
 api_router.include_router(attachments.router, prefix="/attachments", tags=["첨부파일"])
+
+# 강의계획서 관련 엔드포인트
+api_router.include_router(syllabus.router, prefix="/courses/{course_id}/syllabus", tags=["강의계획서"])

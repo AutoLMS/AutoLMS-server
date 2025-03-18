@@ -88,7 +88,7 @@ async def get_course(
 
     courses = await eclass_service.get_courses(current_user["id"], db)
     for course in courses:
-        if course["id"] == course_id:
+        if course.id == course_id:
             return course
     
     raise HTTPException(

@@ -18,3 +18,18 @@ class Notice(Base):
     views = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        """Convert model instance to dictionary"""
+        return {
+            'id': self.id,
+            'article_id': self.article_id,
+            'course_id': self.course_id,
+            'title': self.title,
+            'content': self.content,
+            'author': self.author,
+            'date': self.date,
+            'views': self.views,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }

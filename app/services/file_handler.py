@@ -30,36 +30,44 @@ class FileHandler:
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
             logger.info(f"다운로드 디렉토리 생성: {self.download_dir}")
-    
-    async def download_file(self, session, file_url: str, filename: Optional[str] = None) -> Optional[Tuple[bytes, str]]:
-        """
-        파일 다운로드
-        
-        Args:
-            session: HTTP 세션 (EclassSession 인스턴스)
-            file_url: 파일 URL
-            filename: 파일명 (None인 경우 URL에서 추출)
-            
-        Returns:
-            Tuple[bytes, str]: (파일 데이터, 파일명) 튜플 또는 None
-        """
+
+    # file_handler.py의 download_file 메서드 수정
+    async def download_file(self, session, file_url: str, filename: Optional[str] = None) -> Optional[
+        Tuple[bytes, str]]:
+        """파일 다운로드"""
         try:
             logger.info(f"파일 다운로드 시작: {file_url}")
-            
+
+            # 파일 URL이 상대 경로인 경우 절대 경로로 변환
+            if not file_url.startswith('http'):
+                file_url = f"https://eclass.seoultech.ac.kr{file_url}"
+
             # 세션을 통해 파일 다운로드
             response = await session.get(file_url)
-            
-            # 테스트 케이스를 위한 하드코딩
+            if not response or not response.content:
+                logger.error("파일 다운로드 실패: 응답 없음")
+                return None
+
+            # Content-Disposition 헤더에서 파일명 추출 시도
             if not filename:
-                filename = "test_file.txt"
-            
+                content_disposition = response.headers.get('Content-Disposition')
+                if content_disposition:
+                    filename_match = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', content_disposition)
+                    if filename_match:
+                        filename = filename_match.group(1).strip('"\'')
+                        filename = unquote(filename)  # URL 인코딩 디코드
+
+            # 파일명이 여전히 없으면 URL에서 추출
+            if not filename:
+                filename = os.path.basename(urlparse(file_url).path)
+
             logger.info(f"파일 다운로드 완료: {filename}")
             return response.content, filename
-        
+
         except Exception as e:
-            logger.error(f"파일 다운로드 중 오류 발생: {e}")
+            logger.error(f"파일 다운로드 중 오류 발생: {str(e)}")
             return None
-    
+
     async def save_file(self, file_data: bytes, filename: str, subdirectory: str = "") -> str:
         """
         파일 저장

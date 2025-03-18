@@ -1,9 +1,25 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+import sys
 
 from app.core.config import settings
 from app.api.api import api_router
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
+)
+
+# 각 모듈의 로거 레벨 설정
+logging.getLogger('app.core.parsers.eclass_parser').setLevel(logging.DEBUG)
+logging.getLogger('app.services').setLevel(logging.DEBUG)
 
 def create_app() -> FastAPI:
     """FastAPI 애플리케이션 생성"""

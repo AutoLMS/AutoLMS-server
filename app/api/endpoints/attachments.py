@@ -16,7 +16,7 @@ async def get_attachment(
     current_user: dict = Depends(get_current_user)
 ) -> Any:
     """첨부파일 메타데이터 조회"""
-    attachment_repo = AttachmentRepository(db)
+    attachment_repo = AttachmentRepository()
     
     attachment = await attachment_repo.get_by_id(attachment_id)
     if not attachment or attachment.user_id != current_user["id"]:
