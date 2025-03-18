@@ -2,7 +2,7 @@ import logging
 import asyncio
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple, Set
+from typing import List, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -297,7 +297,7 @@ class EclassService:
             notice_url = notice_url.replace('notice_list_form', 'notice_list')
 
             response = await self.session.get(notice_url)
-            notices = self.parser.parse_notice_list(response.text)
+            # notices = self.parser.parse_notice_list(response.text)
 
             data = {
                 'start': '1',
