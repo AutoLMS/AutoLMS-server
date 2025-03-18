@@ -38,23 +38,30 @@ async def login(
             detail="이메일 또는 비밀번호가 올바르지 않습니다.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     return {
         "access_token": result.get("session", {}).get("access_token", ""),
         "token_type": "bearer",
         "user": result.get("user", {})
     }
 
+
 @router.post("/logout")
 async def logout(
-    token: str = Depends(oauth2_scheme),  # 헤더에서 직접 토큰을 가져옴
-    auth_service: AuthService = Depends(get_auth_service)
+        token: str = Depends(oauth2_scheme),  # 헤더에서 토큰을 가져옴
+        auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
     """로그아웃"""
     try:
         result = await auth_service.logout(token)
-        return {"message": "로그아웃 성공"}
+
+        # 이미 로그아웃된 상태 처리
+        if result.get("status") == "already_logged_out":
+            return {"message": result.get("message"), "status": "already_logged_out"}
+
+        return {"message": "로그아웃 성공", "status": "success"}
     except Exception as e:
+        # 오류 발생 시 처리
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
