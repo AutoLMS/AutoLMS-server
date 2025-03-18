@@ -14,6 +14,8 @@ from app.core.supabase_client import get_supabase_client
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
+_eclass_service = None
+
 def get_auth_service() -> AuthService:
     """인증 서비스 제공"""
     return AuthService(get_supabase_client())
@@ -37,8 +39,11 @@ def get_eclass_service(
     parser: EclassParser = Depends(get_eclass_parser),
     file_handler: FileHandler = Depends(get_file_handler)
 ) -> EclassService:
-    """EclassService 제공"""
-    return EclassService(session=session, parser=parser, file_handler=file_handler)
+    """EclassService 제공 (싱글톤)"""
+    global _eclass_service
+    if not _eclass_service:
+        _eclass_service = EclassService(session=session, parser=parser, file_handler=file_handler)
+    return _eclass_service
 
 # 사용자 인증 의존성
 async def get_current_user(

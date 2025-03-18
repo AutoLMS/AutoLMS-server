@@ -4,29 +4,35 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple, Set
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.repositories import NoticeRepository, AttachmentRepository, AssignmentRepository
 from app.services.eclass_session import EclassSession
 from app.services.eclass_parser import EclassParser
 from app.services.file_handler import FileHandler
 from app.db.repositories.course_repository import CourseRepository
-from app.db.repositories.notice_repository import NoticeRepository
 from app.db.repositories.material_repository import MaterialRepository
-from app.db.repositories.assignment_repository import AssignmentRepository
-from app.db.repositories.attachment_repository import AttachmentRepository
 
 logger = logging.getLogger(__name__)
-
 
 class EclassService:
     """통합 e-Class 서비스"""
 
-    def __init__(self, session=None, parser=None, file_handler=None):
-        """EclassService 초기화"""
-        self.session = session or EclassSession()
-        self.parser = parser or EclassParser()
-        self.file_handler = file_handler or FileHandler()
+    _instance = None
+    _initialized = False
 
-        # 작업 관리
-        self.active_tasks = {}
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, session=None, parser=None, file_handler=None):
+        if not self._initialized:
+            self.session = session or EclassSession()
+            self.parser = parser or EclassParser()
+            self.file_handler = file_handler or FileHandler()
+            self.active_tasks = {}  # active_tasks 초기화 추가
+            self._initialized = True
 
     async def login(self, username: str, password: str) -> bool:
         """e-Class 로그인"""
@@ -36,13 +42,21 @@ class EclassService:
         """로그인 상태 확인"""
         return await self.session.is_logged_in()
 
-    async def get_courses(self, user_id: str, db_session, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    async def ensure_logged_in(self) -> bool:
+        """로그인 상태 보장"""
+        if await self.is_logged_in():
+            return True
+
+        from app.core.config import settings
+        return await self.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
+
+    async def get_courses(self, user_id: str, db: AsyncSession, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
         강의 목록 조회 및 DB 동기화
 
         Args:
             user_id: 사용자 ID
-            db_session: 데이터베이스 세션
+            db: 데이터베이스 세션
             force_refresh: 강제 새로고침 여부
 
         Returns:
@@ -56,49 +70,57 @@ class EclassService:
             return []
 
         # 이미 저장된 강의 목록 가져오기
-        course_repo = CourseRepository(db_session)
-        existing_courses = await course_repo.get_by_user_id(user_id)
+        course_repo = CourseRepository()
+        existing_courses = await course_repo.get_by_user_id(db, user_id)
 
         # 강제 새로고침이 아니고 저장된 강의가 있으면 그대로 반환
         if not force_refresh and existing_courses:
             logger.info(f"저장된 강의 목록 반환: {len(existing_courses)}개")
-            return [course.to_dict() for course in existing_courses]
+            return existing_courses  # Course 모델이 dict로 변환되도록 수정 필요
 
         # e-Class에서 강의 목록 가져오기
         html = await self.session.get_course_list()
+        if not html:
+            logger.error("강의 목록을 가져오는데 실패했습니다")
+            return []
+            
         courses = self.parser.parse_courses(html)
-
         if not courses:
             logger.warning("e-Class에서 가져온 강의 목록이 비어 있습니다")
             return []
 
         # 데이터베이스에 강의 정보 저장
-        existing_course_ids = {course.eclass_id for course in existing_courses}
+        existing_course_ids = {course.id for course in existing_courses}
         updated_courses = []
 
         for course in courses:
-            course_id = course['id']
             course_dict = {
-                'id': course_id,  # 테스트에서 예상하는 'id' 키 추가
-                'eclass_id': course_id,
+                'id': course.get('id'),
                 'user_id': user_id,
-                'name': course['name'],
-                'code': course['code'],
+                'name': course.get('name', ''),
+                'code': course.get('code', ''),
                 'time': course.get('time', ''),
-                'last_updated': datetime.now()
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
             }
 
-            if course_id in existing_course_ids:
-                # 기존 강의 업데이트
-                updated_course = await course_repo.update(course_id, course_dict)
-                updated_courses.append(updated_course.to_dict())
-            else:
-                # 새 강의 추가
-                new_course = await course_repo.create(course_dict)
-                updated_courses.append(new_course.to_dict())
+            try:
+                if course['id'] in existing_course_ids:
+                    # 기존 강의 업데이트
+                    existing_course = next(c for c in existing_courses if c.id == course['id'])
+                    updated_course = await course_repo.update(db, existing_course, **course_dict)
+                    updated_courses.append(updated_course)
+                else:
+                    # 새 강의 추가
+                    new_course = await course_repo.create(db, **course_dict)
+                    updated_courses.append(new_course)
+            except Exception as e:
+                logger.error(f"강의 정보 저장 중 오류 발생: {str(e)}")
+                continue
 
         logger.info(f"강의 목록 동기화 완료: {len(updated_courses)}개")
         return updated_courses
+
 
     async def crawl_course(self, user_id: str, course_id: str, db_session, auto_download: bool = False) -> Dict[
         str, Any]:
@@ -281,10 +303,10 @@ class EclassService:
                 return result
 
             # 기존 공지사항 조회
-            notice_repo = NoticeRepository(db_session)
-            attachment_repo = AttachmentRepository(db_session)
+            notice_repo = NoticeRepository()
+            attachment_repo = AttachmentRepository()
 
-            existing_notices = await notice_repo.get_by_course_id(course_id)
+            existing_notices = await notice_repo.get_by_course_id(db_session, course_id)
             existing_article_ids = {notice.article_id for notice in existing_notices}
 
             # 새 공지사항 처리
@@ -473,8 +495,8 @@ class EclassService:
                 return result
 
             # 기존 과제 조회
-            assignment_repo = AssignmentRepository(db_session)
-            attachment_repo = AttachmentRepository(db_session)
+            assignment_repo = AssignmentRepository()
+            attachment_repo = AttachmentRepository()
 
             existing_assignments = await assignment_repo.get_by_course_id(course_id)
             existing_assignment_ids = {assignment.assignment_id for assignment in existing_assignments}
@@ -596,7 +618,7 @@ class EclassService:
             "task_id": task_id,
             "status": "running",
             "message": f"모든 강의 크롤링 작업이 시작되었습니다 ({len(courses)}개)",
-            "courses": [course["name"] for course in courses]
+            "courses": [course.name for course in courses]
         }
 
     async def get_notices(self, user_id: str, course_id: str, db_session) -> List[Dict[str, Any]]:
@@ -834,9 +856,10 @@ class EclassService:
 
             # 각 강의 순차적으로 크롤링
             for course in courses:
-                course_id = course["eclass_id"]
 
                 try:
+                    course_id = course.id
+
                     # 개별 강의 크롤링
                     course_result = await self._crawl_course_task(
                         user_id, course_id, db_session, auto_download, f"{task_id}_{course_id}"
@@ -844,8 +867,8 @@ class EclassService:
 
                     # 결과 저장
                     result["course_results"][course_id] = {
-                        "name": course["name"],
-                        "code": course["code"],
+                        "name": course.name,
+                        "code": course.code,
                         "status": course_result["status"],
                         "details": course_result.get("details", {})
                     }
@@ -862,11 +885,12 @@ class EclassService:
                     else:
                         result["summary"]["failed"] += 1
 
+
                 except Exception as e:
                     logger.error(f"강의 {course_id} 크롤링 중 오류: {e}")
                     result["course_results"][course_id] = {
-                        "name": course["name"],
-                        "code": course["code"],
+                        "name": course.name,
+                        "code": course.code,
                         "status": "error",
                         "message": str(e)
                     }

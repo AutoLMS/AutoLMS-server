@@ -72,38 +72,54 @@ class AuthService:
     async def get_current_user(self, token: str) -> Dict[str, Any]:
         """토큰에서 현재 사용자 정보 추출"""
         try:
-            # 토큰 검증 및 사용자 정보 조회
-            # self.supabase.auth.set_session(token, None)
-            # user = self.supabase.auth.get_user()
-            user = self.supabase.auth.get_user(token)
+            # Supabase 클라이언트의 세션 관리 활용
+            self.supabase.auth.set_session(token, token)  # access_token과 refresh_token 설정
+            user = self.supabase.auth.get_user()
 
-            if user:
+            if user and user.user:  # user 객체가 있고 user 정보가 있는지 확인
                 return {
-                    "id": user.id,
-                    "email": user.email,
-                    "token": token  # 토큰 정보 추가
+                    "id": user.user.id,
+                    "email": user.user.email,
+                    "token": token
                 }
+
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="유효하지 않은 인증 정보입니다."
             )
 
         except Exception as e:
+            # 구체적인 에러 메시지 포함
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="인증 처리 중 오류가 발생했습니다."
+                detail=f"인증 처리 중 오류가 발생했습니다: {str(e)}"
             )
 
     async def logout(self, token: str) -> Dict[str, Any]:
         """사용자 로그아웃"""
         try:
-            # 세션 설정 및 로그아웃
-            self.supabase.auth.set_session(token, None)
-            self.supabase.auth.sign_out()
-            return {"message": "로그아웃되었습니다."}
+            # 이미 로그아웃된 상태인지 확인
+            try:
+                user = self.supabase.auth.get_user(token)
+                if not user:
+                    return {"status": "already_logged_out", "message": "이미 로그아웃된 상태입니다."}
+            except Exception as e:
+                # 토큰이 유효하지 않은 경우 - 이미 로그아웃되었거나 만료된 경우
+                return {"status": "already_logged_out", "message": "이미 로그아웃된 상태입니다."}
+
+            # Supabase의 sign_out 메서드를 모방하여 구현
+            try:
+                # access_token을 전달하여 서버 측 로그아웃 처리
+                self.supabase.auth.admin.sign_out(token)
+            except Exception:
+                # 오류 무시 - Supabase도 AuthApiError를 무시함
+                pass
+
+            # 로컬 세션 제거
+            # 클라이언트 측에서는 storage 관리가 필요하지만, 서버 측에서는 세션만 무효화하면 됨
+            return {"status": "success", "message": "로그아웃되었습니다."}
 
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"로그아웃 처리 중 오류가 발생했습니다: {str(e)}"
-            )
+            # 예상치 못한 오류 처리
+            # logging.error(f"로그아웃 처리 중 오류: {str(e)}")
+            raise Exception(f"로그아웃 처리 중 오류가 발생했습니다: {str(e)}")

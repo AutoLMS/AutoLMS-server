@@ -38,6 +38,31 @@ async def get_courses(
         "total": len(courses)
     }
 
+@router.get("/crawl", response_model=Course)
+async def crawl_all_courses(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(get_current_user),
+    eclass_service: EclassService = Depends(get_eclass_service)
+) -> Any:
+    """모든 강의 자료 크롤링"""
+    # e-Class 로그인 확인
+    if not await eclass_service.is_logged_in():
+        try:
+            login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
+            if not login_success:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="e-Class 로그인에 실패했습니다."
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
+            )
+
+    return await eclass_service.crawl_all_courses(current_user["id"], db)
+
 @router.get("/{course_id}", response_model=Course)
 async def get_course(
     course_id: str,
