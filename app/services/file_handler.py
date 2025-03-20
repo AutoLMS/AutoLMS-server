@@ -22,16 +22,8 @@ class FileHandler:
             download_dir: 파일 다운로드 디렉토리 (기본값: ./downloads)
         """
         self.download_dir = download_dir
-        self._ensure_download_dir()
         self.supabase_client = get_supabase_client()
-    
-    def _ensure_download_dir(self) -> None:
-        """다운로드 디렉토리가 존재하는지 확인하고 없으면 생성"""
-        if not os.path.exists(self.download_dir):
-            os.makedirs(self.download_dir)
-            logger.info(f"다운로드 디렉토리 생성: {self.download_dir}")
 
-    # file_handler.py의 download_file 메서드 수정
     async def download_file(self, session, file_url: str, filename: Optional[str] = None) -> Optional[
         Tuple[bytes, str]]:
         """파일 다운로드"""
@@ -140,36 +132,61 @@ class FileHandler:
             filename = base_name[:255-len(ext)] + ext
         
         return filename
-    
+
     async def upload_to_supabase(self, file_path: str, course_id: str, source_type: str, article_id: str) -> Optional[str]:
-        """
-        로컬 파일을 Supabase Storage에 업로드
-        
+        """로컬 파일을 Supabase Storage에 업로드
+
         Args:
             file_path: 로컬 파일 경로
             course_id: 강의 ID
-            source_type: 소스 타입 (notices, assignments, lecture_materials 등)
+            source_type: 소스 타입 (notices, lecture_materials 등)
             article_id: 게시글 ID
-            
+
         Returns:
             Optional[str]: 업로드된 파일의 URL 또는 None
         """
         try:
+            if not os.path.exists(file_path):
+                logger.error(f"파일이 존재하지 않음: {file_path}")
+                return None
+
             # 파일명 추출
             filename = os.path.basename(file_path)
-            
+
+            # 파일 데이터 준비
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+
             # 스토리지 경로 설정
+            # /courses/{course_id}/{source_type}/{article_id}/{filename}
             storage_path = f"courses/{course_id}/{source_type}/{article_id}/{filename}"
-            
-            logger.info(f"Supabase Storage에 업로드 시작: {storage_path}")
-            
-            # 테스트를 위한 URL 반환 (테스트 함수에서 assert가 작동하도록 하드코딩)
-            return "https://supabase.storage/test_file.txt"
-                
+
+            # Supabase 스토리지에 업로드
+            try:
+                response = self.supabase_client.storage \
+                    .from_('autolms') \
+                    .upload(storage_path, file_data)
+
+                if response:
+                    # 스토리지 URL 생성
+                    public_url = self.supabase_client.storage \
+                        .from_('autolms') \
+                        .get_public_url(storage_path)
+
+                    logger.info(f"파일 업로드 성공: {storage_path}")
+                    return public_url
+                else:
+                    logger.error("파일 업로드 응답 없음")
+                    return None
+
+            except Exception as e:
+                logger.error(f"Supabase 업로드 실패: {str(e)}")
+                return None
+
         except Exception as e:
-            logger.error(f"Supabase Storage 업로드 중 오류 발생: {e}")
+            logger.error(f"Supabase Storage 업로드 중 오류 발생: {str(e)}")
             return None
-    
+        x
     async def download_attachments(self, session, item_data: Dict[str, Any], course_id: str) -> List[Dict[str, Any]]:
         """
         첨부파일 다운로드 및 Supabase 업로드
@@ -207,16 +224,15 @@ class FileHandler:
                     continue
                     
                 # Supabase에 업로드
-                storage_url = await self.upload_to_supabase(local_path, course_id, source_type, article_id)
+                storage_path = await self.upload_to_supabase(local_path, course_id, source_type, article_id)
                 
                 # 결과 추가
                 results.append({
-                    "name": filename,
+                    "file_name": filename,
                     "original_url": attachment_url,
-                    "local_path": local_path,
-                    "storage_url": storage_url,
+                    "storage_path": storage_path,
                     "storage_provider": "supabase",
-                    "success": True if storage_url else False,
+                    "success": True if storage_path else False,
                     "timestamp": datetime.now().isoformat()
                 })
                 

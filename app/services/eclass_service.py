@@ -3,6 +3,7 @@ import asyncio
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any
+import os
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -387,10 +388,9 @@ class EclassService:
                             for attachment in attachment_results:
                                 if attachment["success"]:
                                     attachment_data = {
-                                        "name": attachment["name"],
+                                        "file_name": attachment["file_name"],
                                         "original_url": attachment["original_url"],
-                                        "storage_url": attachment.get("storage_url", ""),
-                                        "local_path": attachment.get("local_path", ""),
+                                        "storage_path": attachment.get("storage_path", ""),
                                         "source_id": created_notice.id,
                                         "source_type": "notices",
                                         "course_id": course_id,
@@ -422,27 +422,16 @@ class EclassService:
         result = {"count": 0, "new": 0, "errors": 0}
 
         try:
-            # 강의자료 페이지 접근
-            logger.info(f"강의자료 크롤링 시작 - 강의: {course_id}, URL: {material_url}")
-
             base_url = "https://eclass.seoultech.ac.kr"
             material_url = f"{base_url}{material_url}" if not material_url.startswith("http") else material_url
-
-            # URL 변경
             material_url = material_url.replace('lecture_material_list_form', 'lecture_material_list')
 
-            logger.debug(f"강의자료 페이지 요청 URL: {material_url}")
             response = await self.session.get(material_url)
 
             if not response:
-                logger.error("강의자료 페이지 응답 없음")
                 return result
 
-            logger.debug(f"강의자료 페이지 응답 받음: {bool(response.text)}")
-            # logger.debug(f"강의자료 페이지 응답 내용 길이: {len(response.text) if response.text else 0}")
-
             materials = self.parser.parse_material_list(response.text)
-            logger.info(f"파싱된 강의자료 수: {len(materials) if materials else 0}")
 
             if not materials:
                 logger.warning(f"강의 {course_id}의 강의자료가 없습니다.")
@@ -454,7 +443,6 @@ class EclassService:
 
             existing_materials = await material_repo.get_by_course_id(db_session, course_id)
             existing_article_ids = {material.article_id for material in existing_materials}
-            logger.info(f"기존 강의자료 수: {len(existing_article_ids)}")
 
             # 새 강의자료 처리
             for material in materials:
@@ -464,7 +452,6 @@ class EclassService:
                 logger.debug(f"강의자료 처리 - article_id: {article_id}, title: {material.get('title')}")
 
                 if not article_id:
-                    logger.error("article_id가 없는 강의자료 발견")
                     result["errors"] += 1
                     continue
 
@@ -483,8 +470,34 @@ class EclassService:
                         result["errors"] += 1
                         continue
 
+                    if detail_response:
+                        # HTTP 세션(self.session)을 전달
+                        material_detail = await self.parser.parse_material_detail(
+                            self.session,
+                            detail_response.text,
+                            course_id
+                        )
+                        material.update(material_detail)
+
+
+                    # 상세 페이지 HTML 저장
+                    # 테스트를 위한 임시 저장
+                    try:
+                        save_dir = os.path.join("html_dumps", "materials", course_id, article_id)
+                        os.makedirs(save_dir, exist_ok=True)
+
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"material_detail_{timestamp}.html"
+                        file_path = os.path.join(save_dir, filename)
+
+                        with open(file_path, "w", encoding="utf-8") as f:
+                            f.write(detail_response.text)
+                        logger.debug(f"강의자료 상세 HTML 저장 완료: {file_path}")
+                    except Exception as e:
+                        logger.error(f"상세 HTML 저장 중 오류: {str(e)}")
+
                     logger.debug(f"강의자료 상세 정보 응답 받음: {bool(detail_response.text)}")
-                    material_detail = self.parser.parse_material_detail(detail_response.text)
+                    material_detail = await self.parser.parse_material_detail(db_session, detail_response.text, course_id)
                     logger.debug(f"강의자료 상세 정보 파싱 결과: {material_detail}")
 
                     # 강의자료 정보 병합
@@ -496,13 +509,8 @@ class EclassService:
                         "content": material.get("content"),
                         "author": material.get("author"),
                         "date": material.get("date"),
-                        "views": 0  # views 필드가 파싱되지 않는 경우 기본값 사용
+                        "views": material.get("views"),
                     }
-
-                    #
-                    # material["course_id"] = course_id
-                    # material["user_id"] = user_id
-                    # material["type"] = "lecture_materials"
 
                     # DB에 저장
                     logger.debug(f"강의자료 DB 저장 시도: {filtered_material_data}")
@@ -523,10 +531,9 @@ class EclassService:
                             if attachment["success"]:
                                 try:
                                     attachment_data = {
-                                        "name": attachment["name"],
+                                        "file_name": attachment["file_name"],
                                         "original_url": attachment["original_url"],
-                                        "storage_url": attachment.get("storage_url", ""),
-                                        "local_path": attachment.get("local_path", ""),
+                                        "storage_path": attachment.get("storage_path", ""),
                                         "source_id": created_material.id,
                                         "source_type": "lecture_materials",
                                         "course_id": course_id,
@@ -623,10 +630,8 @@ class EclassService:
                         for attachment in attachment_results:
                             if attachment["success"]:
                                 attachment_data = {
-                                    "name": attachment["name"],
-                                    "original_url": attachment["original_url"],
-                                    "storage_url": attachment.get("storage_url", ""),
-                                    "local_path": attachment.get("local_path", ""),
+                                    "file_name": attachment["file_name"],
+                                    "storage_path": attachment.get("storage_path", ""),
                                     "source_id": created_assignment.id,
                                     "source_type": "assignments",
                                     "course_id": course_id,

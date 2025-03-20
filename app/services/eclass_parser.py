@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 import re
 import logging
 from typing import List, Dict, Any, Optional, Tuple
+from urllib.parse import urlparse
+from datetime import datetime
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -392,39 +395,63 @@ class EclassParser:
             logger.error(f"강의자료 목록 파싱 중 오류 발생: {e}")
             return []
 
-    def parse_material_detail(self, html: str) -> Dict[str, Any]:
-        """강의자료 상세 내용 파싱"""
+    async def parse_material_detail(self, http_session, html_content: str, course_id: str) -> Dict[str, Any]:
+        """강의자료 상세 페이지 파싱
+
+        Args:
+            http_session: HTTP 클라이언트 세션 (aiohttp 또는 httpx 세션)
+            html_content: 파싱할 HTML 내용
+            course_id: 강좌 ID
+        """
         try:
-            soup = BeautifulSoup(html, 'html.parser')
-            detail = {}
+            soup = BeautifulSoup(html_content, 'html.parser')
+            parsed_data = {}
 
-            # bbsview 테이블 찾기
-            bbsview = soup.select_one('table.bbsview')
-            if bbsview:
-                # 본문 내용 추출
-                textviewer = bbsview.select_one('td.textviewer')
-                if textviewer:
-                    # HTML 태그 처리
-                    for br in textviewer.find_all('br'):
-                        br.replace_with('\n')
-                    for p in textviewer.find_all('p'):
-                        p.insert_after(soup.new_string('\n'))
+            # CONTENT_SEQ 추출
+            content_seq = None
+            for script in soup.find_all('script'):
+                if script.string and 'CONTENT_SEQ' in script.string:
+                    match = re.search(r'CONTENT_SEQ\s*:\s*["\']([^"\',]+)', script.string)
+                    if match:
+                        content_seq = match.group(1)
+                        break
 
-                    # 첨부파일 div 제외 후 내용 추출
-                    tbody_file_div = textviewer.select_one('#tbody_file')
-                    if tbody_file_div:
-                        tbody_file_div.extract()
+            # 본문 내용 추출
+            content_element = soup.select_one('td.textviewer')
+            if content_element:
+                parsed_data['content'] = content_element.get_text(strip=True)
+                parsed_data['content_html'] = str(content_element)
 
-                    detail['content'] = textviewer.get_text(strip=True)
+            # AJAX로 첨부파일 정보 요청
+            if content_seq:
+                efile_list_url = "https://eclass.seoultech.ac.kr/ilos/co/efile_list.acl"
+                form_data = {
+                    'ky': course_id,
+                    'pf_st_flag': '2',  # 학생 권한
+                    'CONTENT_SEQ': content_seq,
+                    'encoding': 'utf-8'
+                }
 
-                    # 첨부 파일 추출
-                    attachments = self._extract_attachments(soup)
-                    if attachments:
-                        detail['attachments'] = attachments
+                try:
+                    # http_session 사용 (EclassSession의 인스턴스)
+                    file_list_response = await http_session.post(efile_list_url, data=form_data)
 
-            return detail
+                    if file_list_response:
+                        file_list_html = file_list_response.text
+
+                        # 첨부파일 정보 추출
+                        file_info_list = self._extract_attachments(file_list_html, content_seq)
+                        if file_info_list:
+                            parsed_data['attachments'] = file_info_list
+                    else:
+                        logger.error("첨부파일 목록 요청 실패")
+                except Exception as e:
+                    logger.error(f"첨부파일 AJAX 요청 중 오류: {str(e)}")
+
+            return parsed_data
+
         except Exception as e:
-            logger.error(f"강의자료 상세 파싱 중 오류 발생: {e}")
+            logger.error(f"강의자료 상세 정보 파싱 중 오류: {str(e)}")
             return {}
 
     def parse_assignment_list(self, html: str) -> List[Dict[str, Any]]:
@@ -498,81 +525,34 @@ class EclassParser:
             logger.error(f"과제 상세 파싱 중 오류 발생: {e}")
             return {}
 
-    def _extract_attachments(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+    def _extract_attachments(self, html_content: str, content_seq: str) -> List[Dict[str, Any]]:
         """첨부파일 정보 추출"""
         attachments = []
-        try:
-            # 첨부파일 영역 찾기
-            file_div = soup.find('div', id='tbody_file')
-            logger.debug(f"첨부파일 div 찾음: {file_div is not None}")
+        soup = BeautifulSoup(html_content, 'html.parser')
 
-            if file_div:
-                # onclick 속성이 있는 모든 a 태그 찾기
-                file_links = file_div.find_all('a', onclick=True)
-                logger.debug(f"발견된 첨부파일 링크 수: {len(file_links)}")
+        for file_link in soup.find_all('a', href=lambda h: h and 'efile_download.acl' in h):
+            try:
+                file_url = file_link.get('href', '')
+                file_name = file_link.text.strip()
 
-                for file_link in file_links:
-                    try:
-                        onclick = file_link.get('onclick', '')
-                        # onclick="efile_download('2024_1_12345','1','123456')" 형식 파싱
-                        params_match = re.search(r"efile_download\('([^']+)',\s*'([^']+)',\s*'([^']+)'", onclick)
+                # FILE_SEQ 추출
+                file_seq_match = re.search(r'FILE_SEQ=([^&]+)', file_url)
+                if not file_seq_match:
+                    continue
 
-                        if params_match:
-                            course_id, file_seq, content_seq = params_match.groups()
-                            file_name = file_link.get_text(strip=True)
+                file_seq = file_seq_match.group(1)
 
-                            # 다운로드 URL 구성
-                            base_url = "https://eclass.seoultech.ac.kr"
-                            download_url = f"{base_url}/ilos/st/course/efile_download.acl"
-                            download_url = f"{download_url}?CONTENT_SEQ={content_seq}&FILE_SEQ={file_seq}"
+                attachment = {
+                    'name': file_name,
+                    'url': file_url if file_url.startswith('http') else f"https://eclass.seoultech.ac.kr{file_url}",
+                    'file_seq': file_seq,
+                    'content_seq': content_seq
+                }
+                attachments.append(attachment)
+                logger.debug(f"첨부파일 정보 추출: {attachment}")
 
-                            attachment = {
-                                'name': file_name,
-                                'url': download_url,
-                                'original_url': download_url,
-                                'file_seq': file_seq,
-                                'content_seq': content_seq,
-                                'course_id': course_id
-                            }
+            except Exception as e:
+                logger.error(f"첨부파일 정보 추출 중 오류: {str(e)}")
+                continue
 
-                            logger.debug(f"첨부파일 정보 추출: {attachment}")
-                            attachments.append(attachment)
-                    except Exception as e:
-                        logger.error(f"첨부파일 링크 파싱 중 오류: {str(e)}, onclick: {onclick}")
-                        continue
-
-            # 이미지 첨부파일도 찾기
-            content_div = soup.find('div', class_='smart_editor_contents')
-            if content_div:
-                img_tags = content_div.find_all('img', src=True)
-                for img in img_tags:
-                    try:
-                        img_src = img.get('src', '')
-                        if 'efile_download' in img_src:
-                            # 이미 처리된 첨부파일이면 건너뛰기
-                            if any(att['url'] == img_src for att in attachments):
-                                continue
-
-                            img_name = img.get('alt', '') or os.path.basename(urlparse(img_src).path)
-                            if not img_src.startswith('http'):
-                                img_src = f"https://eclass.seoultech.ac.kr{img_src}"
-
-                            attachment = {
-                                'name': img_name,
-                                'url': img_src,
-                                'original_url': img_src,
-                                'type': 'image'
-                            }
-
-                            logger.debug(f"이미지 첨부파일 정보 추출: {attachment}")
-                            attachments.append(attachment)
-                    except Exception as e:
-                        logger.error(f"이미지 첨부파일 파싱 중 오류: {str(e)}")
-                        continue
-
-            logger.info(f"총 {len(attachments)}개의 첨부파일 추출됨")
-            return attachments
-
-        except Exception as e:
-            logger.error(f"첨부파일 추출 중 오류 발생: {str(e)}")
-            return []
+        return attachments
