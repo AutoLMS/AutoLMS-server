@@ -9,7 +9,7 @@ class Attachment(Base):
     __tablename__ = "attachments"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String, nullable=False)
+    course_id = Column(String, nullable=False)
     source_type = Column(String, nullable=False)  # 'notice', 'material', 'assignment'
     source_id = Column(String, nullable=False)
     file_name = Column(String, nullable=False)
@@ -24,7 +24,7 @@ class Attachment(Base):
         """Convert model instance to dictionary"""
         return {
             'id': self.id,
-            'user_id': self.user_id,
+            'course_id': self.course_id,
             'source_type': self.source_type,
             'source_id': self.source_id,
             'file_name': self.file_name,

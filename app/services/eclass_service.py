@@ -5,14 +5,18 @@ from datetime import datetime
 from typing import List, Dict, Any
 import os
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.repositories import NoticeRepository, AttachmentRepository, AssignmentRepository
 from app.services.eclass_session import EclassSession
 from app.services.eclass_parser import EclassParser
 from app.services.file_handler import FileHandler
 from app.db.repositories.course_repository import CourseRepository
 from app.db.repositories.material_repository import MaterialRepository
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.models.attachment import Attachment
+from fastapi import HTTPException
+
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +88,7 @@ class EclassService:
         if not html:
             logger.error("강의 목록을 가져오는데 실패했습니다")
             return []
-            
+
         courses = self.parser.parse_courses(html)
         if not courses:
             logger.warning("e-Class에서 가져온 강의 목록이 비어 있습니다")
@@ -276,90 +280,69 @@ class EclassService:
 
     async def _crawl_notices(self, user_id: str, course_id: str, notice_url: str, db_session, auto_download: bool) -> \
     Dict[str, Any]:
-        """
-        공지사항 크롤링
-
-        Args:
-            user_id: 사용자 ID
-            course_id: 강의 ID
-            notice_url: 공지사항 URL
-            db_session: 데이터베이스 세션
-            auto_download: 첨부파일 자동 다운로드 여부
-
-        Returns:
-            Dict[str, Any]: 공지사항 크롤링 결과
-        """
+        """공지사항 크롤링"""
         result = {"count": 0, "new": 0, "errors": 0}
 
         try:
-            # 공지사항 페이지 접근
+            # 1. 공지사항 목록 페이지 접근
             base_url = "https://eclass.seoultech.ac.kr"
             notice_url = f"{base_url}{notice_url}" if not notice_url.startswith("http") else notice_url
             notice_url = notice_url.replace('notice_list_form', 'notice_list')
 
-            response = await self.session.get(notice_url)
-            # notices = self.parser.parse_notice_list(response.text)
-
+            # 2. 목록 데이터 요청 (material과 유사한 방식으로 변경)
             data = {
                 'start': '1',
-                'display': '1',
+                'display': '100',  # 한 번에 가져올 개수 증가
                 'SCH_VALUE': '',
-                'ud': self.session.user_id,  # 세션의 user_id 사용
+                'ud': self.session.user_id,
                 'ky': course_id,
                 'encoding': 'utf-8'
             }
 
-            logger.info(f"공지사항 요청: {notice_url}, 데이터: {data}")
             response = await self.session.post(notice_url, data=data)
-
             if not response:
-                logger.error("공지사항 페이지 요청 실패")
+                logger.error("공지사항 목록 요청 실패")
                 return result
 
+            # 3. 목록 파싱
             notices = self.parser.parse_notice_list(response.text)
-            logger.info(f"파싱된 공지사항 수: {len(notices)}")
-
             if not notices:
                 logger.info(f"강의 {course_id}의 공지사항이 없습니다.")
                 return result
 
-            # DB 관련 로깅 추가
-            logger.info(f"DB 세션 상태: {db_session}")
-
-            # 기존 공지사항 조회
+            # 4. 기존 공지사항 조회
             notice_repo = NoticeRepository()
             attachment_repo = AttachmentRepository()
-
             existing_notices = await notice_repo.get_by_course_id(db_session, course_id)
             existing_article_ids = {notice.article_id for notice in existing_notices}
-            logger.info(f"기존 공지사항 수: {len(existing_article_ids)}")
 
-            # 새 공지사항 처리
+            # 5. 각 공지사항 처리
             for notice in notices:
                 result["count"] += 1
                 article_id = notice.get("article_id")
 
-                logger.info(f"공지사항 처리 시작: {article_id}")
-                logger.debug(f"공지사항 데이터: {notice}")
-
                 if not article_id:
-                    logger.error("article_id가 없는 공지사항 발견")
                     result["errors"] += 1
                     continue
 
                 try:
-                    # 이미 존재하는 공지사항이면 건너뜀
+                    # 이미 존재하는 공지사항 건너뛰기
                     if article_id in existing_article_ids:
-                        logger.info(f"이미 존재하는 공지사항: {article_id}")
                         continue
 
-                    # 공지사항 상세 정보 가져오기
-                    detail_response = await self.session.get(notice["url"])
-                    notice_detail = self.parser.parse_notice_detail(detail_response.text)
-                    logger.debug(f"공지사항 상세정보: {notice_detail}")
+                    # 상세 페이지 요청 (material과 유사하게 처리)
+                    detail_url = notice.get("url")
+                    detail_response = await self.session.get(detail_url)
+                    if not detail_response:
+                        logger.error(f"공지사항 상세 정보 요청 실패: {article_id}")
+                        result["errors"] += 1
+                        continue
 
-                    # 공지사항 정보 병합
+                    # 상세 정보 파싱
+                    notice_detail = self.parser.parse_notice_detail(detail_response.text)
                     notice.update(notice_detail)
+
+                    # DB 저장
                     notice_data = {
                         'article_id': article_id,
                         'course_id': course_id,
@@ -367,52 +350,40 @@ class EclassService:
                         'content': notice_detail.get('content'),
                         'author': notice.get('author'),
                         'date': notice.get('date'),
-                        'views': int(notice.get('views', 0)),
+                        'views': notice.get('views'),
                     }
 
-                    # DB에 저장 시도
-                    logger.info(f"공지사항 저장 시도: {notice_data}")
-                    try:
-                        created_notice = await notice_repo.create(db_session, obj_data=notice_data)
-                        await db_session.commit()  # 명시적 커밋 추가
-                        logger.info(f"공지사항 저장 성공: {created_notice.id}")
-                        result["new"] += 1
+                    created_notice = await notice_repo.create(db_session, notice_data)
+                    await db_session.commit()
+                    result["new"] += 1
 
-                        # 첨부파일 처리
-                        if auto_download and "attachments" in notice_detail and notice_detail["attachments"]:
-                            attachment_results = await self.file_handler.download_attachments(
-                                self.session, notice_detail, course_id
-                            )
+                    # 첨부파일 처리
+                    if auto_download and notice_detail.get("attachments"):
+                        attachment_results = await self.file_handler.download_attachments(
+                            self.session, notice_detail, course_id
+                        )
 
-                            # 첨부파일 정보 저장
-                            for attachment in attachment_results:
-                                if attachment["success"]:
-                                    attachment_data = {
-                                        "file_name": attachment["file_name"],
-                                        "original_url": attachment["original_url"],
-                                        "storage_path": attachment.get("storage_path", ""),
-                                        "source_id": created_notice.id,
-                                        "source_type": "notices",
-                                        "course_id": course_id,
-                                        "user_id": user_id
-                                    }
-                                    await attachment_repo.create(db_session, **attachment_data)
-                                    await db_session.commit()  # 첨부파일 저장 후 커밋
-
-                    except Exception as db_error:
-                        await db_session.rollback()  # 에러 시 롤백
-                        logger.error(f"공지사항 DB 저장 실패: {str(db_error)}")
-                        result["errors"] += 1
-                        continue
+                        for attachment in attachment_results:
+                            if attachment["success"]:
+                                attachment_data = {
+                                    "file_name": attachment["file_name"],
+                                    "original_url": attachment["original_url"],
+                                    "storage_path": attachment.get("storage_path", ""),
+                                    "source_id": created_notice.id,
+                                    "source_type": "notices",
+                                    "course_id": course_id,
+                                }
+                                await attachment_repo.create(db_session, attachment_data)
+                                await db_session.commit()
 
                 except Exception as e:
-                    logger.error(f"공지사항 {article_id} 처리 중 오류: {e}")
+                    logger.error(f"공지사항 {article_id} 처리 중 오류: {str(e)}")
                     result["errors"] += 1
 
             return result
 
         except Exception as e:
-            logger.error(f"공지사항 크롤링 중 오류 발생: {e}")
+            logger.error(f"공지사항 크롤링 중 오류 발생: {str(e)}")
             result["errors"] += 1
             return result
 
@@ -497,7 +468,7 @@ class EclassService:
                         logger.error(f"상세 HTML 저장 중 오류: {str(e)}")
 
                     logger.debug(f"강의자료 상세 정보 응답 받음: {bool(detail_response.text)}")
-                    material_detail = await self.parser.parse_material_detail(db_session, detail_response.text, course_id)
+                    material_detail = await self.parser.parse_material_detail(self.session, detail_response.text, course_id)
                     logger.debug(f"강의자료 상세 정보 파싱 결과: {material_detail}")
 
                     # 강의자료 정보 병합
@@ -534,13 +505,12 @@ class EclassService:
                                         "file_name": attachment["file_name"],
                                         "original_url": attachment["original_url"],
                                         "storage_path": attachment.get("storage_path", ""),
-                                        "source_id": created_material.id,
+                                        "source_id": str(created_material.id),
                                         "source_type": "lecture_materials",
                                         "course_id": course_id,
-                                        "user_id": user_id
                                     }
                                     await attachment_repo.create(db_session, attachment_data)
-                                    logger.debug(f"첨부파일 메타데이터 저장 완료: {attachment['name']}")
+                                    logger.debug(f"첨부파일 메타데이터 저장 완료: {attachment['file_name']}")
                                 except Exception as e:
                                     logger.error(f"첨부파일 메타데이터 저장 실패: {str(e)}")
 
@@ -628,14 +598,22 @@ class EclassService:
 
                         # 첨부파일 정보 저장
                         for attachment in attachment_results:
+                            # 첨부파일 저장 전 중복 검증
+                            await self.verify_duplicate_attachment(
+                                db_session,
+                                attachment["file_name"],
+                                attachment["original_url"],
+                                str(created_assignment.id),  # or created_material.id, created_assignment.id
+                                course_id
+                            )
+
                             if attachment["success"]:
                                 attachment_data = {
                                     "file_name": attachment["file_name"],
                                     "storage_path": attachment.get("storage_path", ""),
-                                    "source_id": created_assignment.id,
+                                    "source_id": str(created_assignment.id),
                                     "source_type": "assignments",
                                     "course_id": course_id,
-                                    "user_id": user_id
                                 }
                                 await attachment_repo.create(db_session, attachment_data)
 

@@ -62,15 +62,15 @@ class FileHandler:
 
     async def save_file(self, file_data: bytes, filename: str, subdirectory: str = "") -> str:
         """
-        파일 저장
-        
+        파일 저장. 이미 존재하는 파일은 저장하지 않음
+
         Args:
             file_data: 파일 데이터
             filename: 파일명
             subdirectory: 하위 디렉토리 (기본값: "")
-            
+
         Returns:
-            str: 저장된 파일 경로
+            str: 저장된 파일 경로 (이미 존재하는 경우 기존 파일 경로)
         """
         try:
             # 하위 디렉토리 경로 생성
@@ -79,31 +79,29 @@ class FileHandler:
                 save_dir = os.path.join(self.download_dir, subdirectory)
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
-            
+
             # 파일명에서 유효하지 않은 문자 제거
             safe_filename = self._sanitize_filename(filename)
-            
+
             # 전체 파일 경로
             file_path = os.path.join(save_dir, safe_filename)
-            
-            # 파일이 이미 존재하면 이름 변경
+
+            # 파일이 이미 존재하면 기존 경로 반환
             if os.path.exists(file_path):
-                base_name, ext = os.path.splitext(safe_filename)
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                safe_filename = f"{base_name}_{timestamp}{ext}"
-                file_path = os.path.join(save_dir, safe_filename)
-            
-            # 파일 비동기 저장
+                logger.info(f"파일이 이미 존재함: {file_path}")
+                return file_path
+
+            # 파일이 존재하지 않으면 저장
             async with aiofiles.open(file_path, 'wb') as f:
                 await f.write(file_data)
-            
+
             logger.info(f"파일 저장 완료: {file_path}")
             return file_path
-        
+
         except Exception as e:
             logger.error(f"파일 저장 중 오류 발생: {e}")
             return ""
-    
+
     def _sanitize_filename(self, filename: str) -> str:
         """
         파일명에서 유효하지 않은 문자 제거
@@ -133,7 +131,8 @@ class FileHandler:
         
         return filename
 
-    async def upload_to_supabase(self, file_path: str, course_id: str, source_type: str, article_id: str) -> Optional[str]:
+    async def upload_to_supabase(self, file_path: str, course_id: str, source_type: str, article_id: str) -> Optional[
+        str]:
         """로컬 파일을 Supabase Storage에 업로드
 
         Args:
@@ -152,17 +151,32 @@ class FileHandler:
 
             # 파일명 추출
             filename = os.path.basename(file_path)
-
-            # 파일 데이터 준비
-            with open(file_path, 'rb') as f:
-                file_data = f.read()
-
-            # 스토리지 경로 설정
-            # /courses/{course_id}/{source_type}/{article_id}/{filename}
             storage_path = f"courses/{course_id}/{source_type}/{article_id}/{filename}"
 
-            # Supabase 스토리지에 업로드
             try:
+                # 파일이 이미 존재하는지 확인
+                try:
+                    existing_file = self.supabase_client.storage \
+                        .from_('autolms') \
+                        .list(f"courses/{course_id}/{source_type}/{article_id}")
+
+                    # 같은 이름의 파일이 있는지 확인
+                    if any(file.get('name') == filename for file in existing_file):
+                        logger.info(f"파일이 이미 존재함, URL 반환: {storage_path}")
+                        # 이미 존재하는 파일의 URL 반환
+                        return self.supabase_client.storage \
+                            .from_('autolms') \
+                            .get_public_url(storage_path)
+
+                except Exception as e:
+                    # 디렉토리가 없는 경우 등의 예외는 무시하고 계속 진행
+                    logger.debug(f"저장소 확인 중 오류 (무시됨): {str(e)}")
+
+                # 파일이 없는 경우에만 업로드 진행
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+
+                # Supabase 스토리지에 업로드
                 response = self.supabase_client.storage \
                     .from_('autolms') \
                     .upload(storage_path, file_data)
@@ -186,7 +200,7 @@ class FileHandler:
         except Exception as e:
             logger.error(f"Supabase Storage 업로드 중 오류 발생: {str(e)}")
             return None
-        x
+
     async def download_attachments(self, session, item_data: Dict[str, Any], course_id: str) -> List[Dict[str, Any]]:
         """
         첨부파일 다운로드 및 Supabase 업로드

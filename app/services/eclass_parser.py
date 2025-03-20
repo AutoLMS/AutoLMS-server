@@ -230,7 +230,7 @@ class EclassParser:
                             'title': title,
                             'author': author,
                             'date': cols[4].text.strip(),
-                            'views': views,
+                            'views': int(views),
                             'url': detail_url
                         }
                         notices.append(notice)
@@ -242,7 +242,6 @@ class EclassParser:
 
             # 최신순으로 정렬
             notices.reverse()
-            # logger.info(f"전체 파싱된 공지사항 수: {len(notices)}")
             return notices
 
         except Exception as e:
@@ -270,11 +269,23 @@ class EclassParser:
 
         return None
 
+
     def parse_notice_detail(self, html: str) -> Dict[str, Any]:
         """공지사항 상세 내용 파싱"""
         try:
             soup = BeautifulSoup(html, 'html.parser')
             detail = {}
+            content_seq = None
+
+            # URL에서 추출 시도
+            url_match = re.search(r'CONTENT_SEQ=([^&]+)', html)
+            if url_match:
+                content_seq = url_match.group(1)
+            # hidden input에서 추출 시도
+            if not content_seq:
+                seq_input = soup.select_one('input[name="CONTENT_SEQ"]')
+                if seq_input:
+                    content_seq = seq_input.get('value')
 
             # 텍스트뷰어 찾기
             textviewer = soup.find('td', class_='textviewer')
@@ -301,7 +312,7 @@ class EclassParser:
                     detail['content'] = textviewer.get_text(strip=True)
 
                 # 첨부파일 추출
-                attachments = self._extract_attachments(soup)
+                attachments = self._extract_attachments(html, content_seq)
                 if attachments:
                     detail['attachments'] = attachments
 
