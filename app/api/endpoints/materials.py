@@ -3,60 +3,132 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.material import Material, MaterialList
-from app.api.deps import get_current_user, get_db_session, get_eclass_service
-from app.services.eclass_service import EclassService
+from app.api.deps import (
+    get_current_user,
+    get_db_session,
+    get_course_service,
+    get_material_service,
+    get_storage_service
+)
+from app.services.content.course_service import CourseService
+from app.services.content.material_service import MaterialService
+from app.services.storage.storage_service import StorageService
 
 router = APIRouter()
 
 @router.get("/", response_model=MaterialList)
 async def get_materials(
     course_id: str,
+    skip: int = 0,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(get_eclass_service)
+    course_service: CourseService = Depends(get_course_service),
+    material_service: MaterialService = Depends(get_material_service)
 ) -> Any:
-    """강의자료 목록 조회"""
-    materials = await eclass_service.get_materials(current_user["id"], course_id, db)
+    """특정 강의의 강의자료 목록 조회"""
+    # 강의 존재 여부 확인
+    course = await course_service.get_course(current_user["id"], course_id, db)
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="강의를 찾을 수 없습니다."
+        )
+
+    materials = await material_service.get_all(db, course_id, skip=skip, limit=limit)
+    total = len(materials)
+
     return {
         "materials": materials,
-        "total": len(materials)
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+@router.get("/refresh", response_model=MaterialList)
+async def refresh_materials(
+    course_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: dict = Depends(get_current_user),
+    course_service: CourseService = Depends(get_course_service),
+    material_service: MaterialService = Depends(get_material_service)
+) -> Any:
+    """특정 강의의 강의자료 새로고침"""
+    # 강의 존재 여부 확인
+    course = await course_service.get_course(current_user["id"], course_id, db)
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="강의를 찾을 수 없습니다."
+        )
+
+    result = await material_service.refresh_all(db, course_id, current_user["id"], auto_download=True)
+    return {
+        "course_id": course_id,
+        "result": result
     }
 
 @router.get("/{material_id}", response_model=Material)
 async def get_material(
     course_id: str,
-    material_id: str,
+    material_id: int,
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(get_eclass_service)
+    course_service: CourseService = Depends(get_course_service),
+    material_service: MaterialService = Depends(get_material_service)
 ) -> Any:
     """특정 강의자료 조회"""
-    materials = await eclass_service.get_materials(current_user["id"], course_id, db)
-    for material in materials:
-        if material["article_id"] == material_id:
-            return material
-    
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="강의자료를 찾을 수 없습니다"
-    )
+    # 강의 존재 여부 확인
+    course = await course_service.get_course(current_user["id"], course_id, db)
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="강의를 찾을 수 없습니다."
+        )
 
-@router.post("/refresh")
-async def refresh_materials(
+    material = await material_service.get_by_id(db, str(material_id))
+    if not material or material.course_id != course_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="강의자료를 찾을 수 없습니다."
+        )
+
+    return material
+
+@router.get("/{material_id}/attachments/{attachment_id}")
+async def download_material_attachment(
     course_id: str,
+    material_id: int,
+    attachment_id: int,
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(get_eclass_service)
+    course_service: CourseService = Depends(get_course_service),
+    material_service: MaterialService = Depends(get_material_service),
+    storage_service: StorageService = Depends(get_storage_service)
 ) -> Any:
-    """강의자료 새로고침"""
-    result = await eclass_service.crawl_course(current_user["id"], course_id, db)
-    
-    # 새로운 강의자료 조회
-    materials = await eclass_service.get_materials(current_user["id"], course_id, db)
-    
-    return {
-        "materials": materials,
-        "total": len(materials),
-        "message": "강의자료 새로고침이 완료되었습니다",
-        "crawl_result": result
-    }
+    """강의자료 첨부파일 다운로드 URL 조회"""
+    # 강의 존재 여부 확인
+    course = await course_service.get_course(current_user["id"], course_id, db)
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="강의를 찾을 수 없습니다."
+        )
+
+    # 강의자료 확인
+    material = await material_service.get_by_id(db, str(material_id))
+    if not material or material.course_id != course_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="강의자료를 찾을 수 없습니다."
+        )
+
+    # 첨부파일 다운로드 URL 조회
+    download_url = await storage_service.get_download_url(attachment_id, current_user["id"], db)
+    if not download_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="첨부파일을 찾을 수 없습니다."
+        )
+
+    return {"download_url": download_url}

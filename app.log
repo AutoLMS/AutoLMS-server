@@ -14411,3 +14411,5 @@ WHERE materials.id = $1::INTEGER
 2025-03-22 18:39:50,924 - app.services.eclass_parser - WARNING - 과제 테이블을 찾을 수 없습니다.
 2025-03-22 18:39:50,924 - app.services.eclass_service - INFO - 강의 A2025114608541001의 과제가 없습니다.
 2025-03-22 18:39:50,924 - app.services.eclass_service - INFO - 강의 크롤링 작업 완료: crawl_A2025114608541001_547ece92
+2025-03-22 19:06:24,484 - app.services.core.session_service - INFO - SessionService 초기화 완료
+2025-03-22 19:08:12,969 - app.services.core.session_service - INFO - SessionService 초기화 완료
