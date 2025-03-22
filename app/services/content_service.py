@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.services.base_service import BaseService, ContentService as ContentServiceBase
-from app.services.session_service import SessionService
+from app.services.core.session_service import SessionService
 from app.services.parsers.content_parser import ContentParser
 from app.db.repositories.base import BaseRepository
 from app.db.base import Base

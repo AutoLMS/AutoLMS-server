@@ -29,9 +29,7 @@ class NoticeService(ContentService[Notice, NoticeParser, NoticeRepository]):
             session_service,
             notice_parser,
             notice_repository,
-            attachment_repository,
-            storage_service,
-            "notices"
+            attachment_repository
         )
     
     async def get_notices(self, user_id: str, course_id: str, db: AsyncSession) -> List[Notice]:
