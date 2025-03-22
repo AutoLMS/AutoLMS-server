@@ -14288,3 +14288,7 @@ WHERE attachments.source_type = $1::VARCHAR AND attachments.source_id = $2::VARC
 2025-03-20 12:42:41,183 - sqlalchemy.engine.Engine - INFO - [cached since 0.001688s ago] ('notices', '15')
 2025-03-20 12:42:41,184 - app.services.eclass_service - INFO - 강의 A2025114608341001의 공지사항 3개 반환
 2025-03-20 12:42:41,184 - sqlalchemy.engine.Engine - INFO - ROLLBACK
+2025-03-22 18:35:05,150 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-03-22 18:35:14,329 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-03-22 18:35:23,964 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-03-22 18:35:49,257 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"

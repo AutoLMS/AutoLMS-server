@@ -1,0 +1,244 @@
+import logging
+from typing import List, Dict, Any, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.services.content_service import ContentService
+from app.services.core.session_service import SessionService
+from app.services.parsers.assignment_parser import AssignmentParser
+from app.services.storage.storage_service import StorageService
+from app.db.repositories.assignment_repository import AssignmentRepository
+from app.db.repositories.attachment_repository import AttachmentRepository
+from app.models.assignment import Assignment
+
+logger = logging.getLogger(__name__)
+
+class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentRepository]):
+    """과제 서비스"""
+    
+    def __init__(
+        self,
+        session_service: SessionService,
+        assignment_parser: AssignmentParser,
+        assignment_repository: AssignmentRepository,
+        attachment_repository: AttachmentRepository,
+        storage_service: StorageService
+    ):
+        super().__init__(
+            session_service,
+            assignment_parser,
+            assignment_repository,
+            attachment_repository,
+            storage_service,
+            "assignments"
+        )
+    
+    async def get_assignments(self, user_id: str, course_id: str, db: AsyncSession) -> List[Assignment]:
+        """
+        특정 강의의 과제 목록 조회
+        
+        Args:
+            user_id: 사용자 ID
+            course_id: 강의 ID
+            db: 데이터베이스 세션
+            
+        Returns:
+            List[Assignment]: 과제 목록
+        """
+        try:
+            logger.info(f"사용자 {user_id}의 강의 {course_id} 과제 조회")
+            
+            # 1. 강의 접근 권한 확인
+            from app.core.security import verify_course_access
+            await verify_course_access(user_id, course_id, db)
+            
+            # 2. 데이터베이스에서 과제 조회
+            assignments = await self.repository.get_by_course_id(db, course_id)
+            
+            # 3. 과제가 없으면 새로고침 시도
+            if not assignments:
+                logger.info(f"강의 {course_id}의 과제가 없습니다. 새로고침을 시도합니다.")
+                result = await self.refresh_all(db, course_id, user_id)
+                if result["new"] > 0:
+                    # 새로고침 후 다시 조회
+                    assignments = await self.repository.get_by_course_id(db, course_id)
+            
+            # 4. 과제 목록 반환
+            logger.info(f"강의 {course_id}의 과제 {len(assignments)}개 반환")
+            return assignments
+            
+        except Exception as e:
+            logger.error(f"과제 조회 중 오류: {str(e)}")
+            return []
+    
+    async def get_assignment(self, user_id: str, course_id: str, assignment_id: str, db: AsyncSession) -> Optional[Assignment]:
+        """
+        특정 과제 조회
+        
+        Args:
+            user_id: 사용자 ID
+            course_id: 강의 ID
+            assignment_id: 과제 ID
+            db: 데이터베이스 세션
+            
+        Returns:
+            Optional[Assignment]: 과제 정보
+        """
+        try:
+            logger.info(f"사용자 {user_id}의 강의 {course_id}, 과제 {assignment_id} 조회")
+            
+            # 1. 접근 권한 확인
+            from app.core.security import verify_course_access
+            await verify_course_access(user_id, course_id, db)
+            
+            # 2. 과제 조회
+            assignment = await self.repository.get_by_id(db, assignment_id)
+            
+            # 3. 과제가 해당 강의에 속하는지 확인
+            if not assignment or assignment.course_id != course_id:
+                logger.warning(f"강의 {course_id}에 속한 과제 {assignment_id}를 찾을 수 없습니다.")
+                return None
+            
+            # 4. 첨부파일 정보 조회
+            # 참고: 메모리 객체의 속성을 추가하는 방식으로 첨부파일 정보를 추가
+            # 실제 DB 모델에는 이 필드가 없지만 응답 시 포함됨
+            try:
+                attachments = await self.storage_service.get_attachments_by_source(
+                    "assignments", assignment.id, user_id, db
+                )
+                if hasattr(assignment, "attachments"):
+                    assignment.attachments = attachments
+                else:
+                    # DB 모델에 없는 필드를 추가 (객체 메모리에만 존재)
+                    setattr(assignment, "attachments", attachments)
+            except Exception as e:
+                logger.warning(f"첨부파일 정보 조회 중 오류: {str(e)}")
+                # 오류가 발생해도 과제 정보는 반환
+            
+            logger.info(f"과제 {assignment_id} 조회 완료")
+            return assignment
+            
+        except Exception as e:
+            logger.error(f"과제 조회 중 오류: {str(e)}")
+            return None
+    
+    async def refresh_all(
+        self, 
+        db: AsyncSession, 
+        course_id: str, 
+        user_id: str, 
+        auto_download: bool = False
+    ) -> Dict[str, Any]:
+        """
+        특정 강의의 과제 새로고침
+        
+        Args:
+            db: 데이터베이스 세션
+            course_id: 강의 ID
+            user_id: 사용자 ID
+            auto_download: 첨부파일 자동 다운로드 여부
+            
+        Returns:
+            Dict[str, Any]: 새로고침 결과
+        """
+        result = {"count": 0, "new": 0, "errors": 0}
+        
+        try:
+            # 1. 세션 가져오기
+            eclass_session = await self.session_service.get_session(user_id)
+            if not eclass_session:
+                logger.error(f"이클래스 세션을 가져올 수 없음")
+                result["errors"] += 1
+                return result
+            
+            # 2. 과제 목록 페이지 접근
+            base_url = "https://eclass.seoultech.ac.kr"
+            assignment_url = f"{base_url}/report/report_list.jsp?ud={user_id}&ky={course_id}"
+            
+            response = await eclass_session.get(assignment_url)
+            if not response:
+                logger.error("과제 목록 요청 실패")
+                result["errors"] += 1
+                return result
+            
+            # 3. 목록 파싱
+            assignments = self.parser.parse_list(response.text)
+            if not assignments:
+                logger.info(f"강의 {course_id}의 과제가 없습니다.")
+                return result
+            
+            # 4. 기존 과제 조회
+            existing_assignments = await self.repository.get_by_course_id(db, course_id)
+            existing_assignment_ids = {assignment.assignment_id for assignment in existing_assignments}
+            
+            # 5. 각 과제 처리
+            for assignment in assignments:
+                result["count"] += 1
+                assignment_id = assignment.get("assignment_id")
+                
+                if not assignment_id:
+                    result["errors"] += 1
+                    continue
+                
+                try:
+                    # 이미 존재하는 과제 건너뛰기
+                    if assignment_id in existing_assignment_ids:
+                        continue
+                    
+                    # 상세 페이지 요청
+                    detail_url = assignment.get("url")
+                    detail_response = await eclass_session.get(detail_url)
+                    if not detail_response:
+                        logger.error(f"과제 상세 정보 요청 실패: {assignment_id}")
+                        result["errors"] += 1
+                        continue
+                    
+                    # 상세 정보 파싱 (AJAX 요청 포함)
+                    assignment_detail = await self.parser.parse_detail_with_attachments(
+                        eclass_session, 
+                        detail_response.text, 
+                        course_id
+                    )
+                    
+                    # 기본 필드 정보 병합
+                    assignment.update(assignment_detail)
+                    
+                    # DB 저장
+                    assignment_data = {
+                        'assignment_id': assignment_id,
+                        'course_id': course_id,
+                        'title': assignment.get('title'),
+                        'content': assignment_detail.get('content', ''),
+                        'content_html': assignment_detail.get('content_html', ''),
+                        'start_date': assignment.get('start_date'),
+                        'end_date': assignment.get('end_date', assignment_detail.get('due_date')),
+                        'status': assignment.get('status'),
+                        'max_score': assignment_detail.get('score_info', {}).get('max_score'),
+                        'my_score': assignment_detail.get('score_info', {}).get('my_score')
+                    }
+                    
+                    created_assignment = await self.repository.create(db, assignment_data)
+                    result["new"] += 1
+                    
+                    # 첨부파일 처리
+                    if auto_download and assignment.get("attachments"):
+                        attachment_count = await self._process_attachments(
+                            db,
+                            eclass_session,
+                            assignment["attachments"],
+                            created_assignment.id,
+                            course_id
+                        )
+                        logger.info(f"처리된 첨부파일 수: {attachment_count}")
+                    
+                except Exception as e:
+                    logger.error(f"과제 {assignment_id} 처리 중 오류: {str(e)}")
+                    result["errors"] += 1
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"과제 크롤링 중 오류 발생: {str(e)}")
+            result["errors"] += 1
+            return result
