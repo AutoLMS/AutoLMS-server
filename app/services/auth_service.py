@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException, status
 from typing import Dict, Any
 from supabase.lib.client_options import ClientOptions
@@ -6,6 +8,7 @@ from postgrest.exceptions import APIError
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
 
+logger = logging.getLogger(__name__)
 
 class AuthService:
     """Supabase Auth 기반 인증 서비스"""
@@ -72,27 +75,41 @@ class AuthService:
     async def get_current_user(self, token: str) -> Dict[str, Any]:
         """토큰에서 현재 사용자 정보 추출"""
         try:
-            # Supabase 클라이언트의 세션 관리 활용
-            self.supabase.auth.set_session(token, token)  # access_token과 refresh_token 설정
-            user = self.supabase.auth.get_user()
+            logger.info(f"Received token: {token[:10]}...")  # 토큰의 앞부분만 로깅
 
-            if user and user.user:  # user 객체가 있고 user 정보가 있는지 확인
+            # JWT 형식 검증
+            if not token or not token.count('.') == 2:
+                logger.error("Invalid token format")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="유효하지 않은 토큰 형식입니다."
+                )
+
+            # 사용자 정보 조회 시도
+            try:
+                user_response = self.supabase.auth.get_user(token)
+                logger.info(f"User response received: {user_response}")
+
+                if not user_response or not user_response.user:
+                    logger.error("No user data in response")
+                    raise ValueError("사용자 정보를 찾을 수 없습니다.")
+
+                # 사용자 정보 반환
                 return {
-                    "id": user.user.id,
-                    "email": user.user.email,
+                    "id": user_response.user.id,
+                    "email": user_response.user.email,
                     "token": token
                 }
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="유효하지 않은 인증 정보입니다."
-            )
+            except Exception as supabase_error:
+                logger.error(f"Supabase get_user error: {str(supabase_error)}")
+                raise
 
         except Exception as e:
-            # 구체적인 에러 메시지 포함
+            logger.error(f"Authentication error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"인증 처리 중 오류가 발생했습니다: {str(e)}"
+                detail=f"유효하지 않은 인증 정보입니다. Error: {str(e)}"
             )
 
     async def logout(self, token: str) -> Dict[str, Any]:

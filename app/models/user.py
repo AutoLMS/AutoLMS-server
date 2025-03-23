@@ -17,6 +17,12 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Course와의 관계
+    courses = relationship("Course", back_populates="user")
+
+    # Sessions와의 관계 추가
+    sessions = relationship("Session", back_populates="user")
+
     # 비밀번호는 Supabase Auth에서 관리하므로 모델에 포함하지 않음
 
     def to_dict(self) -> dict:
@@ -30,3 +36,5 @@ class User(Base):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+
