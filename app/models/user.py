@@ -1,34 +1,32 @@
-from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 from app.db.base import Base
 
 
 class User(Base):
+    """사용자 정보"""
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, index=True)
+    id = Column(String, primary_key=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    eclass_id = Column(String, nullable=True)  # 이클래스 학번
+    name = Column(String, nullable=True)  # 이름 추가
     is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
-    sessions = relationship("Session", back_populates="user")
-    courses = relationship("Course", back_populates="user")
+    # 비밀번호는 Supabase Auth에서 관리하므로 모델에 포함하지 않음
 
-    def __repr__(self):
-        return f"<User(id={self.id}, email={self.email})>"
-        
     def to_dict(self) -> dict:
-        """사용자 객체를 딕셔너리로 변환"""
+        """사용자 모델을 딕셔너리로 변환"""
         return {
-            "id": self.id,
-            "email": self.email,
-            "eclass_id": self.eclass_id,
-            "is_active": self.is_active,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            'id': self.id,
+            'email': self.email,
+            'name': self.name,
+            'is_active': self.is_active,
+            'is_verified': self.is_verified,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

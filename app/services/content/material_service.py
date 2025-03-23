@@ -1,10 +1,10 @@
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.content_service import ContentService
-from app.services.core.session_service import SessionService
+from app.services.content.content_service import ContentService
+from app.services.session import EclassSessionManager
 from app.services.parsers.material_parser import MaterialParser
 from app.services.storage.storage_service import StorageService
 from app.db.repositories.material_repository import MaterialRepository
@@ -18,19 +18,17 @@ class MaterialService(ContentService[Material, MaterialParser, MaterialRepositor
     
     def __init__(
         self,
-        session_service: SessionService,
+        eclass_session: EclassSessionManager,
         material_parser: MaterialParser,
         material_repository: MaterialRepository,
         attachment_repository: AttachmentRepository,
         storage_service: StorageService
     ):
         super().__init__(
-            session_service,
+            eclass_session,
             material_parser,
             material_repository,
-            attachment_repository,
-            storage_service,
-            "materials"
+            attachment_repository
         )
     
     async def refresh_all(

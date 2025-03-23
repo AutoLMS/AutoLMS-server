@@ -1,12 +1,10 @@
 import logging
-from typing import List, Dict, Any, Optional, Type, Generic, TypeVar
-from datetime import datetime
+from typing import List, Dict, Any, Optional, Generic, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.services.base_service import BaseService, ContentService as ContentServiceBase
-from app.services.core.session_service import SessionService
+from app.services.base_service import ContentService as ContentServiceBase
+from app.services.session import EclassSessionManager
 from app.services.parsers.content_parser import ContentParser
 from app.db.repositories.base import BaseRepository
 from app.db.base import Base
@@ -22,7 +20,7 @@ class ContentService(ContentServiceBase, Generic[ModelType, ParserType, Reposito
     
     def __init__(
         self,
-        session_service: SessionService,
+        session_service: EclassSessionManager,
         parser: ParserType,
         repository: RepositoryType,
         content_type: str

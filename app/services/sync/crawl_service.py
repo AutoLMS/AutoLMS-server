@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 import asyncio
 from datetime import datetime
 import uuid
@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.base_service import BaseService
-from app.services.core.session_service import SessionService
+from app.services.session.eclass_session_manager import EclassSessionManager
 from app.services.content.course_service import CourseService
 from app.services.content.notice_service import NoticeService
 from app.services.content.material_service import MaterialService
@@ -22,14 +22,14 @@ class CrawlService(BaseService):
 
     def __init__(
             self,
-            session_service: SessionService,
+            eclass_session: EclassSessionManager,
             course_service: CourseService,
             notice_service: NoticeService,
             material_service: MaterialService,
             assignment_service: AssignmentService,
             syllabus_service: SyllabusService
     ):
-        self.session_service = session_service
+        self.session_service = eclass_session
         self.course_service = course_service
         self.notice_service = notice_service
         self.material_service = material_service

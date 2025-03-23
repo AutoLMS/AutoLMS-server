@@ -1,147 +1,94 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from typing import Any
 
-from app.schemas.auth import Token, UserOut
-from app.api.deps import (
-    get_auth_service,
-    get_session_service,
-    oauth2_scheme
-)
+from app.schemas.auth import UserCreate, Token, UserOut
 from app.services.auth_service import AuthService
-from app.services.core.session_service import SessionService
+from app.services.session.auth_session_service import AuthSessionService
+from app.services.session.eclass_session_manager import EclassSessionManager
+from app.api.deps import get_auth_service, get_auth_session_service, get_eclass_session_manager, get_current_user
 
 router = APIRouter()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+
+
+@router.post("/register", response_model=UserOut)
+async def register(
+        user_in: UserCreate,
+        auth_service: AuthService = Depends(get_auth_service)
+) -> Any:
+    """새 사용자 등록"""
+    result = await auth_service.register(email=user_in.email, password=user_in.password)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="회원가입 중 오류가 발생했습니다."
+        )
+
+    return result.get("user", {})
 
 
 @router.post("/login", response_model=Token)
 async def login(
         form_data: OAuth2PasswordRequestForm = Depends(),
         auth_service: AuthService = Depends(get_auth_service),
-        session_service: SessionService = Depends(get_session_service)
+        auth_session_service: AuthSessionService = Depends(get_auth_session_service)
 ) -> Any:
     """로그인 및 토큰 발급"""
-    try:
-        # eclass 로그인 검증
-        eclass_session = await session_service.get_session(
-            eclass_id=form_data.username,
-            password=form_data.password
-        )
-
-        if not eclass_session:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="잘못된 학번 또는 비밀번호입니다.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # AutoLMS 서비스 로그인 (Supabase Auth)
-        auth_result = await auth_service.login(
-            email=form_data.username,
-            password=form_data.password
-        )
-
-        if not auth_result:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="서비스 로그인에 실패했습니다.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return {
-            "access_token": auth_result["session"]["access_token"],
-            "token_type": "bearer",
-            "user": auth_result["user"]
-        }
-
-    except Exception as e:
+    result = await auth_service.login(email=form_data.username, password=form_data.password)
+    if not result:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"로그인 중 오류가 발생했습니다: {str(e)}"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 내부 세션 생성
+    user_id = result.get("user", {}).get("id")
+    session_result = await auth_session_service.create_session(user_id)
 
-@router.post("/register", response_model=UserOut)
-async def register(
-        form_data: OAuth2PasswordRequestForm = Depends(),
-        auth_service: AuthService = Depends(get_auth_service),
-        session_service: SessionService = Depends(get_session_service)
-) -> Any:
-    """회원가입"""
-    try:
-        # eclass 로그인 검증
-        eclass_session = await session_service.get_session(
-            eclass_id=form_data.username,
-            password=form_data.password
-        )
-
-        if not eclass_session:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="잘못된 학번 또는 비밀번호입니다."
-            )
-
-        # AutoLMS 서비스 회원가입
-        result = await auth_service.register(
-            email=form_data.username,
-            password=form_data.password
-        )
-
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="회원가입 중 오류가 발생했습니다."
-            )
-
-        return result.get("user", {})
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"회원가입 중 오류가 발생했습니다: {str(e)}"
-        )
+    return {
+        "access_token": session_result["access_token"],
+        "token_type": "bearer",
+        "user": result.get("user", {})
+    }
 
 
 @router.post("/logout")
 async def logout(
         token: str = Depends(oauth2_scheme),
-        auth_service: AuthService = Depends(get_auth_service),
-        session_service: SessionService = Depends(get_session_service)
+        auth_session_service: AuthSessionService = Depends(get_auth_session_service),
+        eclass_session_manager: EclassSessionManager = Depends(get_eclass_session_manager),
+        current_user: dict = Depends(get_current_user)
 ) -> Any:
     """로그아웃"""
     try:
-        # AutoLMS 서비스 로그아웃
-        await auth_service.logout(token)
+        # 인증 세션 종료
+        auth_result = await auth_session_service.end_session(token)
 
-        # e-Class 세션 종료
-        await session_service.end_session(token)
+        # 이클래스 세션도 함께 종료
+        user_id = current_user.get("id")
+        if user_id:
+            await eclass_session_manager.invalidate_session(user_id)
 
-        return {
-            "message": "로그아웃 성공",
-            "status": "success"
-        }
+        # 이미 로그아웃된 상태 처리
+        if not auth_result:
+            return {"message": "이미 로그아웃된 상태입니다.", "status": "already_logged_out"}
 
-    except ValueError as e:
-        return {
-            "message": str(e),
-            "status": "already_logged_out"
-        }
+        return {"message": "로그아웃 성공", "status": "success"}
     except Exception as e:
+        # 오류 발생 시 처리
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"로그아웃 중 오류가 발생했습니다: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
 
 
 @router.get("/verify", response_model=UserOut)
 async def verify_token(
         token: str = Depends(oauth2_scheme),
-        session_service: SessionService = Depends(get_session_service)
+        session_service: AuthSessionService = Depends(get_auth_session_service)
 ) -> Any:
     """토큰 검증"""
     try:

@@ -14413,3 +14413,14 @@ WHERE materials.id = $1::INTEGER
 2025-03-22 18:39:50,924 - app.services.eclass_service - INFO - 강의 크롤링 작업 완료: crawl_A2025114608541001_547ece92
 2025-03-22 19:06:24,484 - app.services.core.session_service - INFO - SessionService 초기화 완료
 2025-03-22 19:08:12,969 - app.services.core.session_service - INFO - SessionService 초기화 완료
+2025-03-23 12:42:59,943 - app.services.session.auth_session_service - INFO - AuthSessionService 초기화 완료
+2025-03-23 12:43:01,235 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 200 OK"
+2025-03-23 12:43:01,238 - app.services.session.auth_session_service - INFO - 사용자 ca3f1f66-5610-4659-8c86-0b134f784a86의 인증 세션 생성
+2025-03-23 12:43:40,044 - app.services.session.auth_session_service - INFO - AuthSessionService 초기화 완료
+2025-03-23 12:43:40,558 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 200 OK"
+2025-03-23 12:43:40,559 - app.services.session.auth_session_service - INFO - 사용자 ca3f1f66-5610-4659-8c86-0b134f784a86의 인증 세션 생성
+2025-03-23 12:45:23,820 - app.services.session.auth_session_service - INFO - AuthSessionService 초기화 완료
+2025-03-23 12:45:24,689 - httpx - INFO - HTTP Request: POST https://byusiqwoquunjziemrmz.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 200 OK"
+2025-03-23 12:45:24,689 - app.services.session.auth_session_service - INFO - 사용자 ca3f1f66-5610-4659-8c86-0b134f784a86의 인증 세션 생성
+2025-03-23 12:45:31,947 - app.services.session.eclass_session_manager - INFO - EclassSessionManager 초기화 완료
+2025-03-23 12:45:31,948 - app.services.session.auth_session_service - ERROR - 토큰 검증 중 오류: 'Settings' object has no attribute 'ALGORITHM'

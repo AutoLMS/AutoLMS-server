@@ -2,10 +2,9 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.services.content_service import ContentService
-from app.services.core.session_service import SessionService
+from app.services.content.content_service import ContentService
+from app.services.session import EclassSessionManager
 from app.services.parsers.assignment_parser import AssignmentParser
 from app.services.storage.storage_service import StorageService
 from app.db.repositories.assignment_repository import AssignmentRepository
@@ -19,7 +18,7 @@ class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentR
     
     def __init__(
         self,
-        session_service: SessionService,
+        session_service: EclassSessionManager,
         assignment_parser: AssignmentParser,
         assignment_repository: AssignmentRepository,
         attachment_repository: AttachmentRepository,

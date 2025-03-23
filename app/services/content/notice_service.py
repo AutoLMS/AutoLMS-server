@@ -1,11 +1,10 @@
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.services.content_service import ContentService
-from app.services.core.session_service import SessionService
+from app.services.content.content_service import ContentService
+from app.services.session import EclassSessionManager
 from app.services.parsers.notice_parser import NoticeParser
 from app.services.storage.storage_service import StorageService
 from app.db.repositories.notice_repository import NoticeRepository
@@ -19,14 +18,14 @@ class NoticeService(ContentService[Notice, NoticeParser, NoticeRepository]):
     
     def __init__(
         self,
-        session_service: SessionService,
+        eclass_session: EclassSessionManager,
         notice_parser: NoticeParser,
         notice_repository: NoticeRepository,
         attachment_repository: AttachmentRepository,
         storage_service: StorageService
     ):
         super().__init__(
-            session_service,
+            eclass_session,
             notice_parser,
             notice_repository,
             attachment_repository

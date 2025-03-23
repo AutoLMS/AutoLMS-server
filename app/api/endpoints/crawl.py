@@ -5,14 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import (
     get_current_user,
     get_db_session,
-    get_session_service,
     get_course_service,
     get_notice_service,
     get_material_service,
     get_assignment_service,
     get_syllabus_service
 )
-from app.services.core.session_service import SessionService
 from app.services.content.course_service import CourseService
 from app.services.content.notice_service import NoticeService
 from app.services.content.material_service import MaterialService
@@ -72,7 +70,6 @@ async def sync_all_courses(
         auto_download: bool = True,
         db: AsyncSession = Depends(get_db_session),
         current_user: dict = Depends(get_current_user),
-        session_service: SessionService = Depends(get_session_service),
         course_service: CourseService = Depends(get_course_service),
         notice_service: NoticeService = Depends(get_notice_service),
         material_service: MaterialService = Depends(get_material_service),

@@ -4,10 +4,9 @@ from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.base_service import BaseService
-from app.services.core.session_service import SessionService
+from app.services.session.eclass_session_manager import EclassSessionManager
 from app.services.parsers.syllabus_parser import SyllabusParser
 from app.db.repositories.syllabus_repository import SyllabusRepository
-from app.models.syllabus import Syllabus
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +15,11 @@ class SyllabusService(BaseService):
     
     def __init__(
         self,
-        session_service: SessionService,
+        eclass_session: EclassSessionManager,
         syllabus_parser: SyllabusParser,
         syllabus_repository: SyllabusRepository
     ):
-        self.session_service = session_service
+        self.session_service = eclass_session
         self.parser = syllabus_parser
         self.repository = syllabus_repository
         logger.info("SyllabusService 초기화 완료")
