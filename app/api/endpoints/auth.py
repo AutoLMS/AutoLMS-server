@@ -23,7 +23,22 @@ async def register(
         auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
     """새 사용자 등록"""
-    result = await auth_service.register(email=user_in.email, password=user_in.password)
+    # 이클래스 계정 검증
+    is_valid = await auth_service.validate_eclass_credentials(user_in.eclass_username, user_in.eclass_password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이클래스 계정 정보가 유효하지 않습니다."
+        )
+
+    # 사용자 등록
+    result = await auth_service.register(
+        email=user_in.email,
+        password=user_in.password,
+        eclass_username=user_in.eclass_username,
+        eclass_password=user_in.eclass_password
+    )
+
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

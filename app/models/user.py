@@ -11,19 +11,21 @@ class User(Base):
 
     id = Column(String, primary_key=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=True)  # 이름 추가
+    name = Column(String, nullable=True)
+
+    # e-Class 관련 정보
+    eclass_username = Column(String)  # 학번
+    # eclass_password는 Supabase에서 암호화하여 관리
+
+    # 상태 정보
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Course와의 관계
-    courses = relationship("Course", back_populates="user")
-
-    # Sessions와의 관계 추가
+    # 관계 정의
+    courses = relationship("Course", secondary="user_courses", back_populates="users")
     sessions = relationship("Session", back_populates="user")
-
-    # 비밀번호는 Supabase Auth에서 관리하므로 모델에 포함하지 않음
 
     def to_dict(self) -> dict:
         """사용자 모델을 딕셔너리로 변환"""
@@ -31,10 +33,11 @@ class User(Base):
             'id': self.id,
             'email': self.email,
             'name': self.name,
+            'eclass_username': self.eclass_username,
             'is_active': self.is_active,
             'is_verified': self.is_verified,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'courses': [course.to_dict() for course in self.courses] if self.courses else []
         }
-
 

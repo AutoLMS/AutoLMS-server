@@ -26,7 +26,6 @@ class EclassSession:
             follow_redirects=True,
             timeout=30.0
         )
-        self.user_id = None
         self._is_logged_in = False
 
 
@@ -147,7 +146,6 @@ class EclassSession:
         """강의실 접근 (필요한 세션 설정 및 URL 반환)"""
         data = {
             "KJKEY": course_id,
-            # "returnData": "json" 제거,
             "returnURI": f"{self.base_url}/ilos/st/course/submain_form.acl",
             "encoding": "utf-8"
         }

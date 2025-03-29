@@ -19,7 +19,11 @@ class Material(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def to_dict(self):
+    # 관계 정의
+    course = relationship("Course", back_populates="materials")
+    attachments = relationship("Attachment", back_populates="material")
+
+    def to_dict(self) -> dict:
         """모델을 딕셔너리로 변환"""
         return {
             'id': self.id,
@@ -31,5 +35,6 @@ class Material(Base):
             'date': self.date,
             'views': self.views,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'attachments': [attachment.to_dict() for attachment in self.attachments] if self.attachments else []
         }

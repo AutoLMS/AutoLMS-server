@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import AsyncSessionLocal
+from app.services import CrawlService, auth_service
 from app.services.auth_service import AuthService
 
 from app.services.content import (
@@ -38,9 +39,11 @@ _eclass_session_manager = None
 _storage_service = None
 _course_service = None
 _notice_service = None
+_auth_service = None
 _material_service = None
 _assignment_service = None
 _syllabus_service = None
+_crawl_service = None
 
 # 세션 서비스 의존성
 def get_auth_session_service() -> AuthSessionService:
@@ -155,7 +158,8 @@ def get_material_service(
     material_parser: MaterialParser = Depends(get_material_parser),
     material_repository: MaterialRepository = Depends(get_material_repository),
     attachment_repository: AttachmentRepository = Depends(get_attachment_repository),
-    storage_service: StorageService = Depends(get_storage_service)
+    storage_service: StorageService = Depends(get_storage_service),
+    auth_service: AuthService = Depends(get_auth_service)
 ) -> MaterialService:
     """MaterialService 제공 (싱글톤)"""
     global _material_service
@@ -165,7 +169,8 @@ def get_material_service(
             material_parser=material_parser,
             material_repository=material_repository,
             attachment_repository=attachment_repository,
-            storage_service=storage_service
+            storage_service=storage_service,
+            auth_service=auth_service
         )
     return _material_service
 
@@ -184,14 +189,14 @@ def get_assignment_service(
             assignment_parser=assignment_parser,
             assignment_repository=assignment_repository,
             attachment_repository=attachment_repository,
-            storage_service=storage_service
         )
     return _assignment_service
 
 def get_syllabus_service(
     eclass_session_manager: EclassSessionManager = Depends(get_eclass_session_manager),
     syllabus_parser: SyllabusParser = Depends(get_syllabus_parser),
-    syllabus_repository: SyllabusRepository = Depends(get_syllabus_repository)
+    syllabus_repository: SyllabusRepository = Depends(get_syllabus_repository),
+    auth_service: AuthService = Depends(get_auth_service)
 ) -> SyllabusService:
     """SyllabusService 제공 (싱글톤)"""
     global _syllabus_service
@@ -199,9 +204,35 @@ def get_syllabus_service(
         _syllabus_service = SyllabusService(
             eclass_session=eclass_session_manager,
             syllabus_parser=syllabus_parser,
-            syllabus_repository=syllabus_repository
+            syllabus_repository=syllabus_repository,
+            auth_service=auth_service
         )
     return _syllabus_service
+
+#크롤러 의존성
+def get_crawl_service(
+    eclass_session: EclassSessionManager = Depends(get_eclass_session_manager),
+    course_service: CourseService = Depends(get_course_service),
+    notice_service: NoticeService = Depends(get_notice_service),
+    material_service: MaterialService = Depends(get_material_service),
+    assignment_service: AssignmentService = Depends(get_assignment_service),
+    syllabus_service: SyllabusService = Depends(get_syllabus_service)
+) -> CrawlService:
+    """CrawlService 제공 (싱글톤)"""
+    global _crawl_service
+    if not _crawl_service:
+        _crawl_service = CrawlService(
+            eclass_session=eclass_session,
+            course_service=course_service,
+            notice_service=notice_service,
+            material_service=material_service,
+            assignment_service=assignment_service,
+            syllabus_service=syllabus_service
+        )
+    return _crawl_service
+
+
+
 
 # 사용자 인증 의존성
 async def get_current_user(

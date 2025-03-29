@@ -1,8 +1,9 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.auth_service import AuthService
 from app.services.content.content_service import ContentService
 from app.services.session import EclassSessionManager
 from app.services.parsers.material_parser import MaterialParser
@@ -15,22 +16,27 @@ logger = logging.getLogger(__name__)
 
 class MaterialService(ContentService[Material, MaterialParser, MaterialRepository]):
     """강의자료 서비스"""
-    
     def __init__(
-        self,
-        eclass_session: EclassSessionManager,
-        material_parser: MaterialParser,
-        material_repository: MaterialRepository,
-        attachment_repository: AttachmentRepository,
-        storage_service: StorageService
+            self,
+            eclass_session: EclassSessionManager,
+            material_parser: MaterialParser,
+            material_repository: MaterialRepository,
+            attachment_repository: AttachmentRepository,
+            storage_service: StorageService,
+            auth_service: AuthService
     ):
+        # 부모 클래스 초기화 - 필수 매개변수만 전달
         super().__init__(
             eclass_session,
             material_parser,
             material_repository,
-            attachment_repository
+            content_type="materials"
         )
-    
+        # 클래스 변수 직접 설정
+        self.auth_service = auth_service
+        self.attachment_repository = attachment_repository
+        self.storage_service = storage_service
+
     async def refresh_all(
         self, 
         db: AsyncSession, 
@@ -61,8 +67,16 @@ class MaterialService(ContentService[Material, MaterialParser, MaterialRepositor
                 return result
             
             # 2. 강의자료 목록 페이지 접근
+            # 이클래스 ID 조회
+            eclass_credentials = await self.auth_service.get_user_eclass_credentials(user_id)
+            if not eclass_credentials or not eclass_credentials.get("username"):
+                logger.error(f"사용자 {user_id}의 이클래스 계정 정보를 찾을 수 없음")
+                return None
+
+            eclass_id = eclass_credentials["username"]
+
             base_url = "https://eclass.seoultech.ac.kr"
-            material_url = f"{base_url}/lecture_material/lecture_material_list.jsp?ud={user_id}&ky={course_id}"
+            material_url = f"{base_url}/lecture_material/lecture_material_list.jsp?ud={eclass_id}&ky={course_id}"
             
             response = await eclass_session.get(material_url)
             if not response:
@@ -149,3 +163,105 @@ class MaterialService(ContentService[Material, MaterialParser, MaterialRepositor
             logger.error(f"강의자료 크롤링 중 오류 발생: {str(e)}")
             result["errors"] += 1
             return result
+
+    async def _process_attachments(
+            self,
+            db: AsyncSession,
+            eclass_session,
+            attachments: List[Dict[str, Any]],
+            source_id: int,
+            course_id: str
+    ) -> int:
+        """
+        첨부파일 처리 및 저장
+
+        Args:
+            db: 데이터베이스 세션
+            eclass_session: 이클래스 세션 객체
+            attachments: 첨부파일 정보 목록
+            source_id: 소스(강의자료) ID
+            course_id: 강의 ID
+
+        Returns:
+            int: 처리된 첨부파일 수
+        """
+        count = 0
+
+        # 첨부파일 저장소와 스토리지 서비스가 클래스에 없으면 추가
+        if not hasattr(self, 'attachment_repository'):
+            from app.db.repositories.attachment_repository import AttachmentRepository
+            self.attachment_repository = AttachmentRepository()
+
+        if not hasattr(self, 'storage_service'):
+            from app.services.storage.storage_service import StorageService
+            self.storage_service = StorageService()
+
+        # 각 첨부파일 처리
+        for attachment in attachments:
+            try:
+                # 첨부파일 정보 로깅
+                file_name = attachment.get("file_name", "")
+                original_url = attachment.get("original_url", "")
+
+                if not file_name or not original_url:
+                    logger.warning(f"첨부파일 정보 부족: {attachment}")
+                    continue
+
+                logger.info(f"첨부파일 처리 시작: {file_name}")
+
+                # 이클래스에서 파일 다운로드
+                try:
+                    # GET 요청으로 파일 다운로드
+                    download_response = await eclass_session.get(original_url)
+                    if not download_response:
+                        logger.error(f"파일 다운로드 실패: {file_name}")
+                        continue
+
+                    # 파일 내용 추출
+                    file_content = download_response.content
+                    file_size = len(file_content)
+
+                    if file_size == 0:
+                        logger.warning(f"다운로드한 파일 크기가 0입니다: {file_name}")
+                        continue
+
+                    logger.info(f"파일 다운로드 완료: {file_name} ({file_size} 바이트)")
+                except Exception as e:
+                    logger.error(f"파일 다운로드 중 오류: {str(e)}")
+                    continue
+
+                # 스토리지에 업로드
+                storage_path = await self.storage_service.upload_file(
+                    file_content,
+                    file_name,
+                    course_id,
+                    "materials"  # 콘텐츠 타입
+                )
+
+                if not storage_path:
+                    logger.error(f"파일 업로드 실패: {file_name}")
+                    continue
+
+                logger.info(f"파일 업로드 완료: {storage_path}")
+
+                # 첨부파일 메타데이터 저장
+                attachment_data = {
+                    "source_type": "materials",
+                    "source_id": str(source_id),
+                    "file_name": file_name,
+                    "file_size": file_size,
+                    "content_type": attachment.get("content_type", ""),
+                    "storage_path": storage_path,
+                    "original_url": original_url,
+                    "course_id": course_id
+                }
+
+                # 데이터베이스에 저장
+                await self.attachment_repository.create(db, attachment_data)
+                count += 1
+                logger.info(f"첨부파일 메타데이터 저장 완료: {file_name}")
+
+            except Exception as e:
+                logger.error(f"첨부파일 '{attachment.get('file_name', '알 수 없음')}' 처리 중 오류: {str(e)}")
+
+        return count

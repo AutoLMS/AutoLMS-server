@@ -7,6 +7,7 @@ from app.services.base_service import BaseService
 from app.services.session.eclass_session_manager import EclassSessionManager
 from app.services.parsers.syllabus_parser import SyllabusParser
 from app.db.repositories.syllabus_repository import SyllabusRepository
+from app.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +18,13 @@ class SyllabusService(BaseService):
         self,
         eclass_session: EclassSessionManager,
         syllabus_parser: SyllabusParser,
-        syllabus_repository: SyllabusRepository
+        syllabus_repository: SyllabusRepository,
+        auth_service: AuthService
     ):
-        self.session_service = eclass_session
+        self.eclass_session_service = eclass_session
         self.parser = syllabus_parser
         self.repository = syllabus_repository
+        self.auth_service = auth_service
         logger.info("SyllabusService 초기화 완료")
     
     async def initialize(self) -> None:
@@ -65,14 +68,22 @@ class SyllabusService(BaseService):
         # 새로운 강의계획서 조회
         try:
             # 이클래스 세션 가져오기
-            eclass_session = await self.session_service.get_session(user_id)
+            eclass_session = await self.eclass_session_service.get_session(user_id)
             if not eclass_session:
                 logger.error("이클래스 세션을 가져올 수 없음")
                 return None
-            
+
+            # 이클래스 ID 조회
+            eclass_credentials = await self.auth_service.get_user_eclass_credentials(user_id)
+            if not eclass_credentials or not eclass_credentials.get("username"):
+                logger.error(f"사용자 {user_id}의 이클래스 계정 정보를 찾을 수 없음")
+                return None
+
+            eclass_id = eclass_credentials["username"]
+
             # 강의계획서 URL 구성 및 요청
             base_url = "https://eclass.seoultech.ac.kr"
-            syllabus_url = f"{base_url}/lecture/course_info.jsp?ref=1&ud={user_id}&ky={course_id}"
+            syllabus_url = f"{base_url}/lecture/course_info.jsp?ref=1&ud={eclass_id}&ky={course_id}"
             
             response = await eclass_session.get(syllabus_url)
             if not response:

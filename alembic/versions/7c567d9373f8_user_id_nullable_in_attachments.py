@@ -20,13 +20,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade():
     # user_id 컬럼을 nullable로 변경
-    op.alter_column('attachments', 'user_id',
-                    existing_type=sa.VARCHAR(),
-                    nullable=True)
+    pass
 
 def downgrade():
     # 롤백을 위한 코드
-    op.alter_column('attachments', 'user_id',
-                    existing_type=sa.VARCHAR(),
-                    nullable=False)
+    pass
 

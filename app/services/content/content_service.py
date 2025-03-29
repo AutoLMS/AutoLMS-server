@@ -70,3 +70,4 @@ class ContentService(ContentServiceBase, Generic[ModelType, ParserType, Reposito
         콘텐츠 새로고침 - 구체적인 구현은 하위 클래스에서 담당
         """
         raise NotImplementedError("하위 클래스에서 구현해야 합니다")
+

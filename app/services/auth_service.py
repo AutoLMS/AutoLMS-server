@@ -1,9 +1,13 @@
 import logging
 
 from fastapi import HTTPException, status
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from sqlalchemy import select
+from app.models.user import User
 from supabase.lib.client_options import ClientOptions
 from postgrest.exceptions import APIError
+import traceback
+from datetime import datetime
 
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
@@ -16,30 +20,96 @@ class AuthService:
     def __init__(self, supabase_client=None):
         self.supabase = supabase_client or get_supabase_client()
 
-    async def register(self, email: str, password: str) -> Dict[str, Any]:
+    # app/services/auth_service.py
+
+
+    logger = logging.getLogger(__name__)
+
+    async def register(self, email: str, password: str, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
         """새 사용자 등록"""
         try:
+            # Supabase Auth로 사용자 등록
+            logger.info(f"사용자 등록 시작: {email}, 이클래스 계정: {eclass_username}")
+
             auth_response = self.supabase.auth.sign_up({
                 "email": email,
                 "password": password
             })
 
+            logger.info(f"Supabase Auth 등록 응답: {auth_response}")
+
             if auth_response.user:
+                user_id = auth_response.user.id
+                logger.info(f"사용자 등록 성공, ID: {user_id}")
+
+                # 사용자 메타데이터 저장
+                try:
+                    logger.info(f"사용자 메타데이터 저장 시작: {user_id}")
+
+                    # 저장할 사용자 데이터 구성
+                    user_data = {
+                        'id': user_id,
+                        'email': email,
+                        'eclass_username': eclass_username,
+                        'eclass_password': eclass_password,  # 실제 구현에서는 암호화 필요
+                        'created_at': datetime.now().isoformat()
+                    }
+
+                    logger.debug(f"저장할 사용자 데이터: {user_data}")
+
+                    # Supabase 테이블 확인
+                    try:
+                        # 테이블 존재 여부 확인
+                        table_query = self.supabase.table('users').select('count').limit(1)
+                        table_result = table_query.execute()
+                        logger.debug(f"테이블 확인 결과: {table_result}")
+                    except Exception as table_error:
+                        logger.error(f"테이블 확인 중 오류: {str(table_error)}")
+
+                    # 데이터 삽입 시도
+                    insert_result = self.supabase.table('users').insert(user_data).execute()
+                    logger.info(f"사용자 메타데이터 저장 성공: {insert_result}")
+
+                except Exception as metadata_error:
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"사용자 메타데이터 저장 중 오류: {str(metadata_error)}")
+                    logger.error(f"상세 오류 정보: {error_traceback}")
+
+                    # 오류 정보를 보다 자세히 로깅
+                    if hasattr(metadata_error, 'response'):
+                        logger.error(
+                            f"API 응답 오류: {metadata_error.response.text if hasattr(metadata_error.response, 'text') else 'No response text'}")
+
+                    # 사용자는 생성되었지만 메타데이터 저장에 실패한 경우 처리
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"사용자 계정이 생성되었지만 이클래스 계정 정보 저장에 실패했습니다. 오류: {str(metadata_error)}"
+                    )
+
                 return {
                     "user": {
-                        "id": auth_response.user.id,
+                        "id": user_id,
                         "email": auth_response.user.email
                     }
                 }
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="회원가입 처리 중 오류가 발생했습니다."
-            )
+            else:
+                logger.warning("Supabase 사용자 등록 응답에 사용자 정보가 없음")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="회원가입 처리 중 오류가 발생했습니다: 사용자 정보 누락"
+                )
 
+        except HTTPException as http_ex:
+            # 이미 HTTPException인 경우 그대로 전달
+            logger.error(f"HTTP 예외 발생: {http_ex.detail}")
+            raise
         except Exception as e:
+            error_traceback = traceback.format_exc()
+            logger.error(f"사용자 등록 중 예외 발생: {str(e)}")
+            logger.error(f"상세 예외 정보: {error_traceback}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
+                detail=f"회원가입 처리 중 오류가 발생했습니다: {str(e)}"
             )
 
     async def login(self, email: str, password: str) -> Dict[str, Any]:
@@ -140,3 +210,58 @@ class AuthService:
             # 예상치 못한 오류 처리
             # logging.error(f"로그아웃 처리 중 오류: {str(e)}")
             raise Exception(f"로그아웃 처리 중 오류가 발생했습니다: {str(e)}")
+
+    async def validate_eclass_credentials(self, eclass_id: str, eclass_pw: str) -> bool:
+        """
+        이클래스 계정 정보의 유효성 검증
+
+        Args:
+            eclass_id: 이클래스 아이디
+            eclass_pw: 이클래스 비밀번호
+
+        Returns:
+            bool: 유효한 계정 정보인 경우 True, 아니면 False
+        """
+        try:
+            # EclassSession 인스턴스 생성
+            from app.services.session.eclass_session import EclassSession
+
+            session = EclassSession()
+            # 실제 로그인 시도
+            login_success = await session.login(username=eclass_id, password=eclass_pw)
+
+            # 세션 종료 (중요: 리소스 정리)
+            await session.close()
+
+            return login_success
+        except Exception as e:
+            logger.error(f"이클래스 계정 검증 중 오류: {str(e)}")
+            return False
+
+
+    async def get_user_eclass_credentials(self, user_id: str) -> Optional[Dict[str, str]]:
+        """사용자의 이클래스 계정 정보 조회"""
+        try:
+            from app.db.base import AsyncSessionLocal
+
+            async with AsyncSessionLocal() as db:
+                # ORM 방식으로 사용자 조회
+                query = select(User).where(User.id == user_id)
+                result = await db.execute(query)
+                user = result.scalar_one_or_none()
+
+                if not user:
+                    logger.error(f"사용자 {user_id}를 찾을 수 없음")
+                    return None
+
+                if not user.eclass_username or not user.eclass_password:
+                    logger.error(f"사용자 {user_id}의 이클래스 계정 정보가 없음")
+                    return None
+
+                return {
+                    "username": user.eclass_username,
+                    "password": user.eclass_password
+                }
+        except Exception as e:
+            logger.error(f"이클래스 계정 정보 조회 중 오류: {str(e)}")
+            return None

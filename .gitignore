@@ -41,3 +41,6 @@ downloads/
 *.db
 *.sqlite3
 logs/
+
+# Log
+app.log

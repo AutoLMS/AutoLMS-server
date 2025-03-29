@@ -1,5 +1,7 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -9,8 +11,9 @@ from app.api.deps import (
     get_notice_service,
     get_material_service,
     get_assignment_service,
-    get_syllabus_service
+    get_syllabus_service, get_eclass_session_manager, get_crawl_service
 )
+from app.services import EclassSessionManager, CrawlService
 from app.services.content.course_service import CourseService
 from app.services.content.notice_service import NoticeService
 from app.services.content.material_service import MaterialService
@@ -19,6 +22,7 @@ from app.services.content.syllabus_service import SyllabusService
 
 router = APIRouter()
 
+logger = logging.getLogger(__name__)
 
 @router.post("/sync/course/{course_id}")
 async def sync_course(
@@ -51,7 +55,7 @@ async def sync_course(
                 "notices": await notice_service.refresh_all(db, course_id, current_user["id"], auto_download),
                 "materials": await material_service.refresh_all(db, course_id, current_user["id"], auto_download),
                 "assignments": await assignment_service.refresh_all(db, course_id, current_user["id"], auto_download),
-                "syllabus": bool(await syllabus_service.refresh(db, course_id, current_user["id"]))
+                "syllabus": bool(await syllabus_service.refresh_all(db, course_id, current_user["id"]))
             }
         }
 
@@ -147,3 +151,33 @@ async def cancel_sync(
         "status": "not_implemented",
         "message": "작업 취소 기능이 구현되지 않았습니다."
     }
+
+
+@router.post("/all")
+async def crawl_all_courses(
+        background_tasks: BackgroundTasks,
+        auto_download: bool = False,
+        db: AsyncSession = Depends(get_db_session),
+        current_user: dict = Depends(get_current_user),
+        course_service: CourseService = Depends(get_course_service),
+        crawl_service: CrawlService = Depends(get_crawl_service)  # 이 부분 추가
+) -> Any:
+    """모든 강의 자동 크롤링 시작"""
+    try:
+        logger.info(f"모든 강의 크롤링 시작 - 사용자: {current_user['id']}, 자동 다운로드: {auto_download}")
+
+        # 실제 크롤링 작업은 CrawlService를 통해 수행
+        result = await crawl_service.crawl_all_courses(
+            user_id=current_user["id"],
+            db_session=db,
+            auto_download=auto_download
+        )
+
+        logger.info(f"크롤링 완료 - 결과: {result.get('status', 'unknown')}")
+        return result
+    except Exception as e:
+        logger.exception(f"크롤링 중 예외 발생: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"크롤링 중 오류 발생: {str(e)}"
+        )

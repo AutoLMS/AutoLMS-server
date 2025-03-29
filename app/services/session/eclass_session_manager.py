@@ -48,20 +48,19 @@ class EclassSessionManager(BaseService):
         await self.close_all_sessions()
         logger.info("EclassSessionManager 종료 완료")
 
-    async def get_session(self, user_id: str, eclass_id: str, password: str) -> Optional[EclassSession]:
+    async def get_session(self, user_id: str) -> Optional[EclassSession]:
         """
-        사용자를 위한 이클래스 세션 가져오기 (필요시 생성)
+        사용자를 위한 이클래스 세션 가져오기
 
         Args:
             user_id: 사용자 ID
-            eclass_id: 이클래스 아이디 (학번) - 필수
-            password: 이클래스 비밀번호 - 필수
 
         Returns:
-            Optional[EclassSession]: 이클래스 세션 객체 또는 None
+            Optional[EclassSession]: 이클래스 세션 또는 None
         """
         lock = await self._ensure_lock()
         async with lock:
+            # 기존 세션 확인
             if user_id in self.eclass_sessions:
                 session = self.eclass_sessions[user_id]
                 is_logged_in = await session.is_logged_in()
@@ -72,22 +71,69 @@ class EclassSessionManager(BaseService):
                 else:
                     logger.debug(f"사용자 {user_id}의 세션이 만료됨, 새로운 세션 생성")
 
-            # 자격 증명 확인 - 반드시 직접 제공되어야 함
-            if not eclass_id or not password:
-                logger.error("이클래스 자격 증명이 제공되지 않았습니다")
+            # 사용자의 이클래스 계정 정보 조회
+            eclass_credentials = await self._get_user_eclass_credentials(user_id)
+            if not eclass_credentials:
+                logger.error(f"사용자 {user_id}의 이클래스 계정 정보를 찾을 수 없음")
                 return None
 
             # 새 세션 생성 및 로그인
             eclass_session = EclassSession()
-            login_success = await eclass_session.login(username=eclass_id, password=password)
+
+            # 로그인 시 이클래스 학번/비밀번호 사용
+            login_success = await eclass_session.login(
+                username=eclass_credentials["username"],
+                password=eclass_credentials["password"]
+            )
 
             if login_success:
                 logger.info(f"사용자 {user_id} 로그인 성공")
+                # 세션 객체에 이클래스 ID 저장 (URL 생성 시 사용)
+                eclass_session.eclass_id = eclass_credentials["username"]
                 self.eclass_sessions[user_id] = eclass_session
                 return eclass_session
             else:
                 logger.error(f"사용자 {user_id} 로그인 실패")
                 return None
+
+    async def _get_user_eclass_credentials(self, user_id: str) -> Optional[Dict[str, str]]:
+        """
+        사용자의 이클래스 계정 정보 조회
+
+        Args:
+            user_id: 사용자 ID
+
+        Returns:
+            Optional[Dict[str, str]]: 이클래스 계정 정보 또는 None
+        """
+        try:
+            # Supabase에서 사용자 정보 조회
+            from app.core.supabase_client import get_supabase_client
+
+            supabase = get_supabase_client()
+            response = supabase.table('users').select('eclass_username, eclass_password').eq('id', user_id).execute()
+
+            if response.data and len(response.data) > 0:
+                user_data = response.data[0]
+                return {
+                    "username": user_data["eclass_username"],
+                    "password": user_data["eclass_password"]  # 실제로는 복호화 필요
+                }
+
+            # 환경 변수의 기본 계정 정보 사용 (공통 계정)
+            # 참고: 이는 임시 대안이며, 이상적으로는 각 사용자가 자신의 계정을 사용해야 함
+            from app.core.config import settings
+            if settings.ECLASS_USERNAME and settings.ECLASS_PASSWORD:
+                logger.warning(f"사용자 {user_id}의 이클래스 계정 정보가 없어 기본 계정 사용")
+                return {
+                    "username": settings.ECLASS_USERNAME,
+                    "password": settings.ECLASS_PASSWORD
+                }
+
+            return None
+        except Exception as e:
+            logger.error(f"이클래스 계정 정보 조회 중 오류: {str(e)}")
+            return None
 
     async def invalidate_session(self, user_id: str) -> None:
         """사용자 세션 무효화"""

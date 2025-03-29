@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -9,7 +9,6 @@ class Attachment(Base):
     __tablename__ = "attachments"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    course_id = Column(String, nullable=False)
     source_type = Column(String, nullable=False)  # 'notice', 'material', 'assignment'
     source_id = Column(String, nullable=False)
     file_name = Column(String, nullable=False)
@@ -20,11 +19,19 @@ class Attachment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # 관계 정의 - polymorphic
+    notice_id = Column(Integer, ForeignKey("notices.id"))
+    material_id = Column(Integer, ForeignKey("materials.id"))
+    assignment_id = Column(Integer, ForeignKey("assignments.id"))
+    
+    notice = relationship("Notice", back_populates="attachments")
+    material = relationship("Material", back_populates="attachments")
+    assignment = relationship("Assignment", back_populates="attachments")
+
     def to_dict(self) -> dict:
-        """Convert model instance to dictionary"""
+        """모델을 딕셔너리로 변환"""
         return {
             'id': self.id,
-            'course_id': self.course_id,
             'source_type': self.source_type,
             'source_id': self.source_id,
             'file_name': self.file_name,
