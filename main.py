@@ -3,6 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import sys
+import socket
+from contextlib import closing
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.api.api import api_router
@@ -47,10 +51,35 @@ def create_app() -> FastAPI:
     @app.get("/")
     def root():
         return {"message": f"Welcome to {settings.API_V1_STR}"}
-        
+
     return app
+
+def is_port_in_use(host: str, port: int) -> bool:
+    """포트가 이미 사용 중인지 확인"""
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        return s.connect_ex((host, port)) == 0
+
+def find_available_port(host: str, start_port: int, max_attempts: int = 10) -> int:
+    """사용 가능한 포트 찾기"""
+    port = start_port
+    for _ in range(max_attempts):
+        if not is_port_in_use(host, port):
+            return port
+        port += 1
+    # 모든 시도 후에도 사용 가능한 포트를 찾지 못한 경우
+    raise RuntimeError(f"{max_attempts}번의 시도 후에도 사용 가능한 포트를 찾지 못했습니다.")
 
 app = create_app()
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=settings.RELOAD)
+    # 설정된 포트가 이미 사용 중인지 확인
+    host = settings.HOST
+    port = settings.PORT
+
+    if is_port_in_use(host, port):
+        logger.warning(f"포트 {port}가 이미 사용 중입니다. 다른 포트를 찾습니다.")
+        port = find_available_port(host, port + 1)
+        logger.info(f"사용 가능한 포트를 찾았습니다: {port}")
+
+    logger.info(f"서버를 시작합니다: {host}:{port}")
+    uvicorn.run("main:app", host=host, port=port, reload=settings.RELOAD)

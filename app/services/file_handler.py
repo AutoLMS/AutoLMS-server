@@ -8,6 +8,7 @@ from urllib.parse import urlparse, unquote, urlencode
 import aiofiles
 
 from app.core.supabase_client import get_supabase_client
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class FileHandler:
         """
         self.download_dir = download_dir
         self.supabase_client = get_supabase_client()
+        self.bucket_name = settings.SUPABASE_BUCKET
 
     async def download_file(self, session, file_url: str, filename: Optional[str] = None) -> Optional[
         Tuple[bytes, str]]:
@@ -157,7 +159,7 @@ class FileHandler:
                 # 파일이 이미 존재하는지 확인
                 try:
                     existing_file = self.supabase_client.storage \
-                        .from_('autolms') \
+                        .from_(self.bucket_name) \
                         .list(f"courses/{course_id}/{source_type}/{article_id}")
 
                     # 같은 이름의 파일이 있는지 확인
@@ -165,7 +167,7 @@ class FileHandler:
                         logger.info(f"파일이 이미 존재함, URL 반환: {storage_path}")
                         # 이미 존재하는 파일의 URL 반환
                         return self.supabase_client.storage \
-                            .from_('autolms') \
+                            .from_(self.bucket_name) \
                             .get_public_url(storage_path)
 
                 except Exception as e:
@@ -178,13 +180,13 @@ class FileHandler:
 
                 # Supabase 스토리지에 업로드
                 response = self.supabase_client.storage \
-                    .from_('autolms') \
+                    .from_(self.bucket_name) \
                     .upload(storage_path, file_data)
 
                 if response:
                     # 스토리지 URL 생성
                     public_url = self.supabase_client.storage \
-                        .from_('autolms') \
+                        .from_(self.bucket_name) \
                         .get_public_url(storage_path)
 
                     logger.info(f"파일 업로드 성공: {storage_path}")

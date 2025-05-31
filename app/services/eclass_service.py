@@ -372,6 +372,7 @@ class EclassService:
                                     "source_id": created_notice.id,
                                     "source_type": "notices",
                                     "course_id": course_id,
+                                    "user_id": user_id,  # Add user_id for compatibility
                                 }
                                 await attachment_repo.create(db_session, attachment_data)
                                 await db_session.commit()
@@ -508,6 +509,7 @@ class EclassService:
                                         "source_id": str(created_material.id),
                                         "source_type": "lecture_materials",
                                         "course_id": course_id,
+                                        "user_id": user_id,  # Add user_id for compatibility
                                     }
                                     await attachment_repo.create(db_session, attachment_data)
                                     logger.debug(f"첨부파일 메타데이터 저장 완료: {attachment['file_name']}")
@@ -610,10 +612,12 @@ class EclassService:
                             if attachment["success"]:
                                 attachment_data = {
                                     "file_name": attachment["file_name"],
+                                    "original_url": attachment["original_url"],  # Add original_url for consistency
                                     "storage_path": attachment.get("storage_path", ""),
                                     "source_id": str(created_assignment.id),
                                     "source_type": "assignments",
                                     "course_id": course_id,
+                                    "user_id": user_id,  # Add user_id for compatibility
                                 }
                                 await attachment_repo.create(db_session, attachment_data)
 

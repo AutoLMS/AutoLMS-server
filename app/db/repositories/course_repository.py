@@ -12,14 +12,15 @@ class CourseRepository(BaseRepository):
         super().__init__(Course)
     
     async def get_by_user_id(self, db: AsyncSession, user_id: str) -> List[Course]:
-        """사용자 ID로 코스 목록 조회"""
-        query = select(self.model).where(self.model.user_id == user_id)
+        """사용자 ID로 코스 목록 조회 - courses 테이블의 user_id 필드 사용"""
+        query = select(Course).where(Course.user_id == user_id)
+        
         result = await db.execute(query)
         return result.scalars().all()
 
-    async def get_by_course_id(self, db: AsyncSession, course_id: int) -> Course:
+    async def get_by_course_id(self, db: AsyncSession, course_id: str) -> Course:
         """코스 ID로 단일 코스 조회"""
-        query = select(self.model).where(self.model.course_id == course_id)
+        query = select(self.model).where(self.model.id == course_id)
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
