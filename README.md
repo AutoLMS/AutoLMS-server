@@ -127,9 +127,31 @@ python main.py
 - `GET /crawl/status/{task_id}` - 크롤링 작업 상태 조회
 - `POST /crawl/cancel/{task_id}` - 크롤링 작업 취소
 
+## 프로젝트 구조
+
+```
+AutoLMS-R/
+├── app/                 # 메인 애플리케이션
+│   ├── api/            # API 엔드포인트
+│   ├── core/           # 핵심 설정
+│   ├── db/             # 데이터베이스 관련
+│   ├── models/         # 데이터 모델
+│   ├── schemas/        # Pydantic 스키마
+│   └── services/       # 비즈니스 로직
+├── tests/              # 테스트 파일들
+├── scripts/            # 설정 및 유틸리티 스크립트
+├── sql/                # SQL 스크립트
+├── api-docs/           # API 문서 (Postman 컬렉션)
+├── test_data/          # 테스트 데이터
+└── alembic/            # 데이터베이스 마이그레이션
+```
+
 ## 개발자 문서
 
-자세한 개발자 문서와 API 명세는 `/docs` 엔드포인트에서 확인할 수 있습니다.
+- **API 문서**: `/docs` 엔드포인트 또는 `api-docs/` 폴더의 Postman 컬렉션
+- **테스트**: `tests/README.md` 참조
+- **스크립트**: `scripts/README.md` 참조
+- **SQL**: `sql/README.md` 참조
 
 ## 라이선스
 
