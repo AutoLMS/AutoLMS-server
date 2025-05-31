@@ -42,6 +42,23 @@ class AuthService:
     async def login(self, email: str, password: str) -> Dict[str, Any]:
         """사용자 로그인"""
         try:
+            # 개발 환경에서 테스트 계정은 이메일 확인 없이 가짜 토큰 생성
+            if settings.ENVIRONMENT == "development" and email.startswith("devtest"):
+                # 간단한 가짜 토큰과 사용자 정보 반환
+                fake_user_id = "1ae6fcaa-c18d-40a7-83bb-56715689b47c"  # 등록된 사용자 ID
+                fake_token = f"dev_token_{fake_user_id}"
+                
+                return {
+                    "session": {
+                        "access_token": fake_token,
+                        "refresh_token": fake_token
+                    },
+                    "user": {
+                        "id": fake_user_id,
+                        "email": email
+                    }
+                }
+            
             auth_response = self.supabase.auth.sign_in_with_password({
                 "email": email,
                 "password": password
@@ -64,14 +81,24 @@ class AuthService:
             )
 
         except Exception as e:
+            error_message = str(e)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e)
+                detail=error_message
             )
 
     async def get_current_user(self, token: str) -> Dict[str, Any]:
         """토큰에서 현재 사용자 정보 추출"""
         try:
+            # 개발 환경에서 가짜 토큰 처리
+            if settings.ENVIRONMENT == "development" and token.startswith("dev_token_"):
+                user_id = token.replace("dev_token_", "")
+                return {
+                    "id": user_id,
+                    "email": "devtest@gmail.com",
+                    "token": token
+                }
+            
             # Supabase 클라이언트의 세션 관리 활용
             self.supabase.auth.set_session(token, token)  # access_token과 refresh_token 설정
             user = self.supabase.auth.get_user()
@@ -88,6 +115,9 @@ class AuthService:
                 detail="유효하지 않은 인증 정보입니다."
             )
 
+        except HTTPException:
+            # HTTPException은 그대로 전달
+            raise
         except Exception as e:
             # 구체적인 에러 메시지 포함
             raise HTTPException(

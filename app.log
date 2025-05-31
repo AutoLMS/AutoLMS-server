@@ -39,3 +39,35 @@ WHERE courses.user_id = $1::VARCHAR
 2025-05-31 14:18:55,792 - __main__ - WARNING - 포트 8000가 이미 사용 중입니다. 다른 포트를 찾습니다.
 2025-05-31 14:18:55,792 - __main__ - INFO - 사용 가능한 포트를 찾았습니다: 8001
 2025-05-31 14:18:55,792 - __main__ - INFO - 서버를 시작합니다: 0.0.0.0:8001
+2025-05-31 15:48:07,413 - __main__ - WARNING - 포트 8000가 이미 사용 중입니다. 다른 포트를 찾습니다.
+2025-05-31 15:48:07,413 - __main__ - INFO - 사용 가능한 포트를 찾았습니다: 8002
+2025-05-31 15:48:07,413 - __main__ - INFO - 서버를 시작합니다: 0.0.0.0:8002
+2025-05-31 15:51:18,749 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 15:51:19,159 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 15:51:30,735 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 15:51:37,832 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 200 OK"
+2025-05-31 15:51:46,090 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 15:56:22,060 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 15:57:53,492 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 200 OK"
+2025-05-31 15:58:08,764 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 16:01:19,139 - __main__ - WARNING - 포트 8000가 이미 사용 중입니다. 다른 포트를 찾습니다.
+2025-05-31 16:01:19,139 - __main__ - INFO - 사용 가능한 포트를 찾았습니다: 8002
+2025-05-31 16:01:19,139 - __main__ - INFO - 서버를 시작합니다: 0.0.0.0:8002
+2025-05-31 16:01:43,455 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/lo/login.acl "HTTP/1.1 200 OK"
+2025-05-31 16:01:43,482 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 16:01:43,494 - app.services.eclass_service - INFO - 사용자 1ae6fcaa-c18d-40a7-83bb-56715689b47c의 강의 목록 조회 시작
+2025-05-31 16:01:43,513 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 16:02:14,942 - __main__ - WARNING - 포트 8000가 이미 사용 중입니다. 다른 포트를 찾습니다.
+2025-05-31 16:02:14,943 - __main__ - INFO - 사용 가능한 포트를 찾았습니다: 8002
+2025-05-31 16:02:14,943 - __main__ - INFO - 서버를 시작합니다: 0.0.0.0:8002
+2025-05-31 16:02:35,429 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/lo/login.acl "HTTP/1.1 200 OK"
+2025-05-31 16:02:35,452 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 16:02:35,465 - app.services.eclass_service - INFO - 사용자 1ae6fcaa-c18d-40a7-83bb-56715689b47c의 강의 목록 조회 시작
+2025-05-31 16:02:35,486 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 16:03:09,266 - __main__ - WARNING - 포트 8000가 이미 사용 중입니다. 다른 포트를 찾습니다.
+2025-05-31 16:03:09,267 - __main__ - INFO - 사용 가능한 포트를 찾았습니다: 8002
+2025-05-31 16:03:09,267 - __main__ - INFO - 서버를 시작합니다: 0.0.0.0:8002
+2025-05-31 16:03:33,616 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/lo/login.acl "HTTP/1.1 200 OK"
+2025-05-31 16:03:33,639 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 16:03:33,651 - app.services.eclass_service - INFO - 사용자 1ae6fcaa-c18d-40a7-83bb-56715689b47c의 강의 목록 조회 시작
+2025-05-31 16:03:33,670 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"

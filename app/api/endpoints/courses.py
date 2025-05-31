@@ -5,9 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.course import Course, CourseList
 from app.api.deps import get_current_user, get_db_session, get_eclass_service
 from app.services.eclass_service import EclassService
+from app.services.test_data_service import TestDataService
 from app.core.config import settings
 
 router = APIRouter()
+
+# 개발 환경에서는 TestDataService 사용
+def get_test_data_service():
+    return TestDataService()
 
 @router.get("/", response_model=CourseList)
 async def get_courses(
@@ -15,10 +20,20 @@ async def get_courses(
     current_user: dict = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100,
-    eclass_service: EclassService = Depends(get_eclass_service)
+    eclass_service: EclassService = Depends(get_eclass_service),
+    test_data_service: TestDataService = Depends(get_test_data_service)
 ) -> Any:
     """모든 강의 목록 조회"""
-    # e-Class 로그인 시도
+    
+    # 개발 환경에서는 테스트 데이터 사용
+    if settings.ENVIRONMENT == "development":
+        courses = test_data_service.get_courses(current_user["id"])
+        return {
+            "courses": courses,
+            "total": len(courses)
+        }
+    
+    # 프로덕션 환경에서는 실제 eClass 서비스 사용
     try:
         login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
         if not login_success:
@@ -68,10 +83,22 @@ async def get_course(
     course_id: str,
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(get_eclass_service)
+    eclass_service: EclassService = Depends(get_eclass_service),
+    test_data_service: TestDataService = Depends(get_test_data_service)
 ) -> Any:
     """특정 강의 정보 조회"""
-    # e-Class 로그인 확인
+    
+    # 개발 환경에서는 테스트 데이터 사용
+    if settings.ENVIRONMENT == "development":
+        course = test_data_service.get_course_by_id(current_user["id"], course_id)
+        if not course:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="강의를 찾을 수 없습니다"
+            )
+        return course
+    
+    # 프로덕션 환경에서는 실제 eClass 서비스 사용
     if not await eclass_service.is_logged_in():
         try:
             login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
@@ -101,10 +128,21 @@ async def refresh_courses(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(get_eclass_service)
+    eclass_service: EclassService = Depends(get_eclass_service),
+    test_data_service: TestDataService = Depends(get_test_data_service)
 ) -> Any:
     """강의 목록 새로고침 (e-Class에서 다시 가져오기)"""
-    # e-Class 로그인 확인
+    
+    # 개발 환경에서는 테스트 데이터 사용
+    if settings.ENVIRONMENT == "development":
+        courses = test_data_service.get_courses(current_user["id"])
+        return {
+            "courses": courses,
+            "total": len(courses),
+            "message": "강의 목록 새로고침이 완료되었습니다"
+        }
+    
+    # 프로덕션 환경에서는 실제 eClass 서비스 사용    
     if not await eclass_service.is_logged_in():
         try:
             login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
