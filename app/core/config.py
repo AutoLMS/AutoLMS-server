@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Supabase 설정
     SUPABASE_URL: str
     SUPABASE_KEY: str
+    SUPABASE_SERVICE_KEY: Optional[str] = None
     SUPABASE_BUCKET: str = "autolms-files"
 
     # e-Class 설정
