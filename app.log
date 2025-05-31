@@ -80,3 +80,5 @@ WHERE courses.user_id = $1::VARCHAR
 2025-05-31 16:22:05,330 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 200 OK"
 2025-05-31 16:23:20,824 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
 2025-05-31 16:23:21,193 - httpx - INFO - HTTP Request: GET https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/user "HTTP/1.1 403 Forbidden"
+2025-05-31 16:31:26,172 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:31:26,579 - httpx - INFO - HTTP Request: GET https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/user "HTTP/1.1 403 Forbidden"
