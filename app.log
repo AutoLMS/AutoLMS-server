@@ -71,3 +71,12 @@ WHERE courses.user_id = $1::VARCHAR
 2025-05-31 16:03:33,639 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
 2025-05-31 16:03:33,651 - app.services.eclass_service - INFO - 사용자 1ae6fcaa-c18d-40a7-83bb-56715689b47c의 강의 목록 조회 시작
 2025-05-31 16:03:33,670 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 16:20:02,655 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:20:03,063 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 16:20:15,250 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:20:21,415 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 200 OK"
+2025-05-31 16:20:26,615 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 16:21:58,266 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:22:05,330 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 200 OK"
+2025-05-31 16:23:20,824 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:23:21,193 - httpx - INFO - HTTP Request: GET https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/user "HTTP/1.1 403 Forbidden"
