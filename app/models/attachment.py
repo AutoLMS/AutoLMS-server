@@ -7,7 +7,7 @@ from app.db.base import Base
 class Attachment(Base):
     """첨부파일 메타데이터"""
     __tablename__ = "attachments"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     source_type = Column(String, nullable=False)  # 'notice', 'material', 'assignment'
     source_id = Column(String, nullable=False)
@@ -16,6 +16,7 @@ class Attachment(Base):
     content_type = Column(String)
     storage_path = Column(String, nullable=False)
     original_url = Column(String)
+    # Removed user_id field to match Supabase schema
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -39,6 +40,7 @@ class Attachment(Base):
             'content_type': self.content_type,
             'storage_path': self.storage_path,
             'original_url': self.original_url,
+            'file_url': self.storage_path,  # For compatibility, provide file_url as storage_path
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
