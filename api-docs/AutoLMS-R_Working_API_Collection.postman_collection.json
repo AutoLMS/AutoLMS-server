@@ -1,0 +1,594 @@
+{
+  "info": {
+    "name": "AutoLMS-R Updated API Collection",
+    "description": "AutoLMS-R 프로젝트의 업데이트된 API 테스트 컬렉션 (Bearer Token 인증)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. 인증",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has user data\", function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData).to.have.property('email');",
+                  "        pm.expect(jsonData).to.have.property('id');",
+                  "        pm.environment.set('user_id', jsonData.id);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has token\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    pm.expect(jsonData).to.have.property('token_type');",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "    ",
+                  "    // Save token for subsequent requests",
+                  "    pm.environment.set('access_token', jsonData.access_token);",
+                  "    pm.environment.set('user_id', jsonData.user.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{test_email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{test_password}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. 강의",
+      "item": [
+        {
+          "name": "Get All Courses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has courses and total\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('courses');",
+                  "    pm.expect(jsonData).to.have.property('total');",
+                  "    pm.expect(jsonData.courses).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Save first course ID for other tests",
+                  "if (pm.response.json().courses.length > 0) {",
+                  "    pm.environment.set('course_id', pm.response.json().courses[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Specific Course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has course data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Courses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has courses and total\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('courses');",
+                  "    pm.expect(jsonData).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "refresh"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. 공지사항",
+      "item": [
+        {
+          "name": "Get Course Notices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has notices and total\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('notices');",
+                  "    pm.expect(jsonData).to.have.property('total');",
+                  "    pm.expect(jsonData.notices).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Save first notice ID for other tests",
+                  "if (pm.response.json().notices.length > 0) {",
+                  "    pm.environment.set('notice_id', pm.response.json().notices[0].article_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "notices", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Specific Notice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has notice data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('article_id');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices/{{notice_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "notices", "{{notice_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Course Notices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "notices", "refresh"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 강의자료",
+      "item": [
+        {
+          "name": "Get Course Materials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has materials and total\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('materials');",
+                  "    pm.expect(jsonData).to.have.property('total');",
+                  "    pm.expect(jsonData.materials).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Save first material ID for other tests",
+                  "if (pm.response.json().materials.length > 0) {",
+                  "    pm.environment.set('material_id', pm.response.json().materials[0].article_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "materials", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Specific Material",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has material data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('article_id');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials/{{material_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "materials", "{{material_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Course Materials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "materials", "refresh"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. 과제",
+      "item": [
+        {
+          "name": "Get Course Assignments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has assignments and total\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('assignments');",
+                  "    pm.expect(jsonData).to.have.property('total');",
+                  "    pm.expect(jsonData.assignments).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Save first assignment ID for other tests (if exists)",
+                  "if (pm.response.json().assignments.length > 0) {",
+                  "    pm.environment.set('assignment_id', pm.response.json().assignments[0].assignment_id || pm.response.json().assignments[0].article_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/assignments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "assignments", ""]
+            }
+          }
+        },
+        {
+          "name": "Refresh Course Assignments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/courses/{{course_id}}/assignments/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "courses", "{{course_id}}", "assignments", "refresh"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. 로그아웃",
+      "item": [
+        {
+          "name": "Logout User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has success message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "// Clear token after logout",
+                  "pm.environment.unset('access_token');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8002"
+    },
+    {
+      "key": "test_email",
+      "value": "devtest@seoultech.ac.kr"
+    },
+    {
+      "key": "test_password",
+      "value": "testpassword123"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "course_id",
+      "value": ""
+    },
+    {
+      "key": "notice_id",
+      "value": ""
+    },
+    {
+      "key": "material_id",
+      "value": ""
+    },
+    {
+      "key": "assignment_id",
+      "value": ""
+    },
+    {
+      "key": "attachment_id",
+      "value": ""
+    }
+  ]
+}
