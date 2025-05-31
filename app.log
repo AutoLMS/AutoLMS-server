@@ -82,3 +82,114 @@ WHERE courses.user_id = $1::VARCHAR
 2025-05-31 16:23:21,193 - httpx - INFO - HTTP Request: GET https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/user "HTTP/1.1 403 Forbidden"
 2025-05-31 16:31:26,172 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
 2025-05-31 16:31:26,579 - httpx - INFO - HTTP Request: GET https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/user "HTTP/1.1 403 Forbidden"
+2025-05-31 16:54:17,294 - __main__ - WARNING - 포트 8000가 이미 사용 중입니다. 다른 포트를 찾습니다.
+2025-05-31 16:54:17,294 - __main__ - INFO - 사용 가능한 포트를 찾았습니다: 8001
+2025-05-31 16:54:17,294 - __main__ - INFO - 서버를 시작합니다: 0.0.0.0:8001
+2025-05-31 16:57:23,500 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:57:31,829 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/signup "HTTP/1.1 400 Bad Request"
+2025-05-31 16:57:42,601 - httpx - INFO - HTTP Request: POST https://evknhkmfwgbzmbdgfvme.supabase.co/auth/v1/token?grant_type=password "HTTP/1.1 400 Bad Request"
+2025-05-31 17:03:56,169 - app.services.eclass_service - INFO - 강의 크롤링 작업 시작: crawl_A2025114608241001_6efb7e6f (강의: A2025114608241001, 사용자: 1ae6fcaa-c18d-40a7-83bb-56715689b47c)
+2025-05-31 17:03:56,169 - app.services.eclass_service - ERROR - 로그인되지 않은 상태에서 크롤링 시도
+2025-05-31 17:10:34,934 - app.services.eclass_service - INFO - 강의 크롤링 작업 시작: crawl_A2025114608241001_5f33bae4 (강의: A2025114608241001, 사용자: 1ae6fcaa-c18d-40a7-83bb-56715689b47c)
+2025-05-31 17:10:35,028 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/lo/login.acl "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,049 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,063 - app.services.eclass_session - INFO - 강의실 접근: A2025114608241001
+2025-05-31 17:10:35,063 - app.services.eclass_session - DEBUG - POST 요청: https://eclass.seoultech.ac.kr/ilos/st/course/eclass_room_submain.acl, 데이터: {'KJKEY': 'A2025114608241001', 'returnURI': 'https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl', 'encoding': 'utf-8'}
+2025-05-31 17:10:35,088 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/st/course/eclass_room_submain.acl "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,089 - app.services.eclass_session - DEBUG - POST 응답: 200, 내용 길이: 135
+2025-05-31 17:10:35,089 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl?KJKEY=A2025114608241001, 파라미터: None
+2025-05-31 17:10:35,108 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl?KJKEY=A2025114608241001 "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,116 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 59445
+2025-05-31 17:10:35,124 - app.services.eclass_session - DEBUG - POST 요청: https://eclass.seoultech.ac.kr/ilos/st/course/notice_list.acl, 데이터: {'start': '1', 'display': '100', 'SCH_VALUE': '', 'ud': '19102100', 'ky': 'A2025114608241001', 'encoding': 'utf-8'}
+2025-05-31 17:10:35,141 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/st/course/notice_list.acl "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,141 - app.services.eclass_session - DEBUG - POST 응답: 200, 내용 길이: 777
+2025-05-31 17:10:35,142 - app.services.eclass_parser - INFO - HTML 파싱 시작
+2025-05-31 17:10:35,142 - app.services.eclass_parser - INFO - 발견된 공지사항 행 수: 0
+2025-05-31 17:10:35,142 - app.services.eclass_parser - WARNING - 공지사항 목록을 찾을 수 없습니다.
+2025-05-31 17:10:35,142 - app.services.eclass_service - INFO - 강의 A2025114608241001의 공지사항이 없습니다.
+2025-05-31 17:10:35,142 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_list.acl, 파라미터: None
+2025-05-31 17:10:35,156 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_list.acl "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,156 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 919
+2025-05-31 17:10:35,157 - app.services.eclass_parser - WARNING - 강의자료 목록을 찾을 수 없습니다.
+2025-05-31 17:10:35,157 - app.services.eclass_service - WARNING - 강의 A2025114608241001의 강의자료가 없습니다.
+2025-05-31 17:10:35,157 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/report_list_form.acl, 파라미터: None
+2025-05-31 17:10:35,170 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/report_list_form.acl "HTTP/1.1 200 OK"
+2025-05-31 17:10:35,175 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 51602
+2025-05-31 17:10:35,181 - app.services.eclass_parser - WARNING - 과제 테이블을 찾을 수 없습니다.
+2025-05-31 17:10:35,181 - app.services.eclass_service - INFO - 강의 A2025114608241001의 과제가 없습니다.
+2025-05-31 17:10:35,181 - app.services.eclass_service - INFO - 강의 크롤링 작업 완료: crawl_A2025114608241001_5f33bae4
+2025-05-31 17:11:02,283 - app.services.eclass_service - INFO - 작업 crawl_A2025114608241001_5f33bae4 상태 조회
+2025-05-31 17:11:20,678 - app.services.eclass_service - INFO - 강의 크롤링 작업 시작: crawl_A2025114607141001_881f50c5 (강의: A2025114607141001, 사용자: 1ae6fcaa-c18d-40a7-83bb-56715689b47c)
+2025-05-31 17:11:20,725 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 17:11:20,739 - app.services.eclass_session - INFO - 강의실 접근: A2025114607141001
+2025-05-31 17:11:20,739 - app.services.eclass_session - DEBUG - POST 요청: https://eclass.seoultech.ac.kr/ilos/st/course/eclass_room_submain.acl, 데이터: {'KJKEY': 'A2025114607141001', 'returnURI': 'https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl', 'encoding': 'utf-8'}
+2025-05-31 17:11:20,756 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/st/course/eclass_room_submain.acl "HTTP/1.1 200 OK"
+2025-05-31 17:11:20,757 - app.services.eclass_session - DEBUG - POST 응답: 200, 내용 길이: 135
+2025-05-31 17:11:20,757 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl?KJKEY=A2025114607141001, 파라미터: None
+2025-05-31 17:11:20,779 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl?KJKEY=A2025114607141001 "HTTP/1.1 200 OK"
+2025-05-31 17:11:20,792 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 82801
+2025-05-31 17:11:20,846 - app.services.eclass_session - DEBUG - POST 요청: https://eclass.seoultech.ac.kr/ilos/st/course/notice_list.acl, 데이터: {'start': '1', 'display': '100', 'SCH_VALUE': '', 'ud': '19102100', 'ky': 'A2025114607141001', 'encoding': 'utf-8'}
+2025-05-31 17:11:20,863 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/st/course/notice_list.acl "HTTP/1.1 200 OK"
+2025-05-31 17:11:20,863 - app.services.eclass_session - DEBUG - POST 응답: 200, 내용 길이: 10019
+2025-05-31 17:11:20,867 - app.services.eclass_parser - INFO - HTML 파싱 시작
+2025-05-31 17:11:20,867 - app.services.eclass_parser - INFO - 발견된 공지사항 행 수: 11
+2025-05-31 17:11:20,869 - app.services.eclass_service - ERROR - 공지사항 크롤링 중 오류 발생: the greenlet library is required to use this function. No module named 'greenlet'
+2025-05-31 17:11:20,869 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_list.acl, 파라미터: None
+2025-05-31 17:11:20,883 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_list.acl "HTTP/1.1 200 OK"
+2025-05-31 17:11:20,884 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 13884
+2025-05-31 17:11:20,888 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7588557', 'title': 'Chapter 11', 'author': '이윤호', 'date': '2025.05.30 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7588557&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,888 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7555198', 'title': 'Chapter 10', 'author': '이윤호', 'date': '2025.05.24 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7555198&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,889 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7547465', 'title': 'Pi-heaan manual', 'author': '한상훈', 'date': '2025.05.16 오후 5:30', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7547465&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,889 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7527783', 'title': 'Chapter 6', 'author': '이윤호', 'date': '2025.05.16 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7527783&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,889 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7528400', 'title': 'Snort parctice', 'author': '한상훈', 'date': '2025.05.12 오후 1:30', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7528400&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,889 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7475706', 'title': 'Chapter 8/9', 'author': '이윤호', 'date': '2025.05.03 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7475706&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,890 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7480264', 'title': 'mid-term problem', 'author': '이윤호', 'date': '2025.04.29 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7480264&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,890 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7475452', 'title': 'Chapter 7', 'author': '이윤호', 'date': '2025.04.28 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7475452&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,890 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7452322', 'title': 'Blockchain', 'author': '이윤호', 'date': '2025.04.21 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7452322&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,890 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7385536', 'title': 'Chapter 5', 'author': '이윤호', 'date': '2025.04.07 오전 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7385536&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:11:20,890 - app.services.eclass_parser - INFO - 파싱된 전체 강의자료 수: 10
+2025-05-31 17:11:20,890 - app.services.eclass_service - ERROR - 강의자료 크롤링 중 오류 발생: the greenlet library is required to use this function. No module named 'greenlet'
+2025-05-31 17:11:20,890 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/report_list_form.acl, 파라미터: None
+2025-05-31 17:11:20,902 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/report_list_form.acl "HTTP/1.1 200 OK"
+2025-05-31 17:11:20,908 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 51114
+2025-05-31 17:11:20,913 - app.services.eclass_parser - WARNING - 과제 테이블을 찾을 수 없습니다.
+2025-05-31 17:11:20,913 - app.services.eclass_service - INFO - 강의 A2025114607141001의 과제가 없습니다.
+2025-05-31 17:11:20,913 - app.services.eclass_service - INFO - 강의 크롤링 작업 완료: crawl_A2025114607141001_881f50c5
+2025-05-31 17:11:43,746 - app.services.eclass_service - INFO - 작업 crawl_A2025114607141001_881f50c5 상태 조회
+2025-05-31 17:12:07,720 - app.services.eclass_service - INFO - 강의 크롤링 작업 시작: crawl_A2025114608541001_d2581730 (강의: A2025114608541001, 사용자: 1ae6fcaa-c18d-40a7-83bb-56715689b47c)
+2025-05-31 17:12:07,766 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-05-31 17:12:07,778 - app.services.eclass_session - INFO - 강의실 접근: A2025114608541001
+2025-05-31 17:12:07,778 - app.services.eclass_session - DEBUG - POST 요청: https://eclass.seoultech.ac.kr/ilos/st/course/eclass_room_submain.acl, 데이터: {'KJKEY': 'A2025114608541001', 'returnURI': 'https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl', 'encoding': 'utf-8'}
+2025-05-31 17:12:07,793 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/st/course/eclass_room_submain.acl "HTTP/1.1 200 OK"
+2025-05-31 17:12:07,794 - app.services.eclass_session - DEBUG - POST 응답: 200, 내용 길이: 135
+2025-05-31 17:12:07,794 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl?KJKEY=A2025114608541001, 파라미터: None
+2025-05-31 17:12:07,821 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/submain_form.acl?KJKEY=A2025114608541001 "HTTP/1.1 200 OK"
+2025-05-31 17:12:07,829 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 70190
+2025-05-31 17:12:07,839 - app.services.eclass_session - DEBUG - POST 요청: https://eclass.seoultech.ac.kr/ilos/st/course/notice_list.acl, 데이터: {'start': '1', 'display': '100', 'SCH_VALUE': '', 'ud': '19102100', 'ky': 'A2025114608541001', 'encoding': 'utf-8'}
+2025-05-31 17:12:07,852 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/st/course/notice_list.acl "HTTP/1.1 200 OK"
+2025-05-31 17:12:07,854 - app.services.eclass_session - DEBUG - POST 응답: 200, 내용 길이: 11625
+2025-05-31 17:12:07,858 - app.services.eclass_parser - INFO - HTML 파싱 시작
+2025-05-31 17:12:07,858 - app.services.eclass_parser - INFO - 발견된 공지사항 행 수: 13
+2025-05-31 17:12:07,859 - app.services.eclass_service - ERROR - 공지사항 크롤링 중 오류 발생: the greenlet library is required to use this function. No module named 'greenlet'
+2025-05-31 17:12:07,859 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_list.acl, 파라미터: None
+2025-05-31 17:12:07,872 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_list.acl "HTTP/1.1 200 OK"
+2025-05-31 17:12:07,874 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 14037
+2025-05-31 17:12:07,878 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7569760', 'title': 'Project Procurement Management', 'author': '윤양인', 'date': '2025.05.21 오후 6:01', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7569760&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,878 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7569755', 'title': 'Project Stakeholder Management', 'author': '윤양인', 'date': '2025.05.21 오후 6:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7569755&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,878 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7540034', 'title': 'Project Risk Management', 'author': '윤양인', 'date': '2025.05.14 오후 6:40', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7540034&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,878 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7512187', 'title': 'Project Resource Management', 'author': '윤양인', 'date': '2025.05.07 오후 7:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7512187&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,879 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7490140', 'title': 'Project Quality Management', 'author': '윤양인', 'date': '2025.05.01 오전 8:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7490140&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,879 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7435587', 'title': 'Cost Management Team Activity', 'author': '윤양인', 'date': '2025.04.17 오후 12:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7435587&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,879 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7435375', 'title': 'MidTerm Exam Review', 'author': '윤양인', 'date': '2025.04.17 오전 10:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7435375&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,879 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7401762', 'title': 'Critical Path and float time example', 'author': '윤양인', 'date': '2025.04.10 오전 10:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7401762&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,880 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7373338', 'title': 'Project Cost Management', 'author': '윤양인', 'date': '2025.04.03 오후 6:55', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7373338&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,880 - app.services.eclass_parser - DEBUG - 파싱된 강의자료: {'article_id': '7370894', 'title': 'Project Schedule Management', 'author': '윤양인', 'date': '2025.04.03 오전 8:00', 'url': 'https://eclass.seoultech.ac.kr/ilos/st/course/lecture_material_view_form.acl?ARTL_NUM=7370894&SCH_KEY=&SCH_VALUE=&display=10&start=1', 'has_attachment': True}
+2025-05-31 17:12:07,880 - app.services.eclass_parser - INFO - 파싱된 전체 강의자료 수: 10
+2025-05-31 17:12:07,880 - app.services.eclass_service - ERROR - 강의자료 크롤링 중 오류 발생: the greenlet library is required to use this function. No module named 'greenlet'
+2025-05-31 17:12:07,880 - app.services.eclass_session - DEBUG - GET 요청: https://eclass.seoultech.ac.kr/ilos/st/course/report_list_form.acl, 파라미터: None
+2025-05-31 17:12:07,892 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/st/course/report_list_form.acl "HTTP/1.1 200 OK"
+2025-05-31 17:12:07,897 - app.services.eclass_session - DEBUG - GET 응답: 200, 내용 길이: 51611
+2025-05-31 17:12:07,902 - app.services.eclass_parser - WARNING - 과제 테이블을 찾을 수 없습니다.
+2025-05-31 17:12:07,902 - app.services.eclass_service - INFO - 강의 A2025114608541001의 과제가 없습니다.
+2025-05-31 17:12:07,902 - app.services.eclass_service - INFO - 강의 크롤링 작업 완료: crawl_A2025114608541001_d2581730
+2025-05-31 17:13:25,883 - app.services.eclass_service - INFO - 작업 crawl_A2025114608541001_d2581730 상태 조회

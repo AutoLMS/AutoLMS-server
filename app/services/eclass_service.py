@@ -146,13 +146,13 @@ class EclassService:
 
         logger.info(f"강의 크롤링 작업 시작: {task_id} (강의: {course_id}, 사용자: {user_id})")
 
-        # 로그인 상태 확인
-        if not await self.is_logged_in():
-            logger.error("로그인되지 않은 상태에서 크롤링 시도")
+        # 로그인 상태 확인 및 자동 로그인 시도
+        if not await self.ensure_logged_in():
+            logger.error("e-Class 로그인 실패")
             return {
                 "task_id": task_id,
                 "status": "error",
-                "message": "로그인이 필요합니다",
+                "message": "e-Class 로그인 실패",
                 "course_id": course_id
             }
 
@@ -649,13 +649,13 @@ class EclassService:
 
         logger.info(f"모든 강의 크롤링 작업 시작: {task_id} (사용자: {user_id})")
 
-        # 로그인 상태 확인
-        if not await self.is_logged_in():
-            logger.error("로그인되지 않은 상태에서 크롤링 시도")
+        # 로그인 상태 확인 및 자동 로그인 시도
+        if not await self.ensure_logged_in():
+            logger.error("e-Class 로그인 실패")
             return {
                 "task_id": task_id,
                 "status": "error",
-                "message": "로그인이 필요합니다"
+                "message": "e-Class 로그인 실패"
             }
 
         # 강의 목록 가져오기

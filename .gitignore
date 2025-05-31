@@ -36,8 +36,24 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# App
+# App specific
 downloads/
 *.db
 *.sqlite3
 logs/
+*.log
+html_dumps/
+
+# Environment files
+.env.local
+.env.production
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Test artifacts
+.coverage
+.pytest_cache/
+.tox/
