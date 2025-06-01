@@ -8,7 +8,15 @@ from app.core.config import settings
 Base = declarative_base()
 
 # 엔진 생성
-engine = create_async_engine(settings.SQLALCHEMY_DATABASE_URI, pool_pre_ping=True, echo=True)
+engine = create_async_engine(
+    settings.SQLALCHEMY_DATABASE_URI, 
+    pool_pre_ping=True, 
+    echo=False,
+    pool_size=settings.DATABASE_POOL_SIZE,
+    max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    pool_timeout=30,
+    pool_recycle=3600
+)
 
 # 세션 팩토리 생성
 AsyncSessionLocal = async_sessionmaker(

@@ -3,6 +3,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.course import Course, CourseList
+from app.schemas.crawl import CrawlTaskResponse
 from app.api.deps import get_current_user, get_db_session, get_eclass_service
 from app.services.eclass_service import EclassService
 from app.services.test_data_service import TestDataService
@@ -24,7 +25,7 @@ async def get_courses(
     test_data_service: TestDataService = Depends(get_test_data_service)
 ) -> Any:
     """모든 강의 목록 조회"""
-    
+
     # 개발 환경에서는 테스트 데이터 사용
     if settings.ENVIRONMENT == "development":
         courses = test_data_service.get_courses(current_user["id"])
@@ -32,7 +33,7 @@ async def get_courses(
             "courses": courses,
             "total": len(courses)
         }
-    
+
     # 프로덕션 환경에서는 실제 eClass 서비스 사용
     try:
         login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
@@ -47,18 +48,19 @@ async def get_courses(
             detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
         )
 
-    courses = await eclass_service.get_courses(current_user["id"], db)
+    courses = await eclass_service.get_courses(current_user["id"])
     return {
         "courses": courses,
         "total": len(courses)
     }
 
-@router.get("/crawl", response_model=Course)
+@router.get("/crawl", response_model=CrawlTaskResponse)
 async def crawl_all_courses(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
-    eclass_service: EclassService = Depends(get_eclass_service)
+    eclass_service: EclassService = Depends(get_eclass_service),
+    auto_download: bool = False
 ) -> Any:
     """모든 강의 자료 크롤링"""
     # e-Class 로그인 확인
@@ -76,7 +78,7 @@ async def crawl_all_courses(
                 detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
             )
 
-    return await eclass_service.crawl_all_courses(current_user["id"], db)
+    return await eclass_service.crawl_all_courses(current_user["id"], auto_download)
 
 @router.get("/{course_id}", response_model=Course)
 async def get_course(
@@ -87,7 +89,7 @@ async def get_course(
     test_data_service: TestDataService = Depends(get_test_data_service)
 ) -> Any:
     """특정 강의 정보 조회"""
-    
+
     # 개발 환경에서는 테스트 데이터 사용
     if settings.ENVIRONMENT == "development":
         course = test_data_service.get_course_by_id(current_user["id"], course_id)
@@ -97,7 +99,7 @@ async def get_course(
                 detail="강의를 찾을 수 없습니다"
             )
         return course
-    
+
     # 프로덕션 환경에서는 실제 eClass 서비스 사용
     if not await eclass_service.is_logged_in():
         try:
@@ -113,11 +115,11 @@ async def get_course(
                 detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
             )
 
-    courses = await eclass_service.get_courses(current_user["id"], db)
+    courses = await eclass_service.get_courses(current_user["id"])
     for course in courses:
-        if course.id == course_id:
+        if course and course.get('id') == course_id:
             return course
-    
+
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="강의를 찾을 수 없습니다"
@@ -132,7 +134,7 @@ async def refresh_courses(
     test_data_service: TestDataService = Depends(get_test_data_service)
 ) -> Any:
     """강의 목록 새로고침 (e-Class에서 다시 가져오기)"""
-    
+
     # 개발 환경에서는 테스트 데이터 사용
     if settings.ENVIRONMENT == "development":
         courses = test_data_service.get_courses(current_user["id"])
@@ -141,7 +143,7 @@ async def refresh_courses(
             "total": len(courses),
             "message": "강의 목록 새로고침이 완료되었습니다"
         }
-    
+
     # 프로덕션 환경에서는 실제 eClass 서비스 사용    
     if not await eclass_service.is_logged_in():
         try:
@@ -156,10 +158,10 @@ async def refresh_courses(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
             )
-            
+
     # 강제 새로고침
-    courses = await eclass_service.get_courses(current_user["id"], db, force_refresh=True)
-    
+    courses = await eclass_service.get_courses(current_user["id"], force_refresh=True)
+
     return {
         "courses": courses,
         "total": len(courses),

@@ -1,7 +1,19 @@
 from fastapi import APIRouter
 from app.api.endpoints import auth, courses, notices, materials, assignments, attachments, crawl, syllabus
+from datetime import datetime
 
 api_router = APIRouter()
+
+# Health check 엔드포인트
+@api_router.get("/health", tags=["시스템"])
+async def health_check():
+    """시스템 상태 확인"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "AutoLMS-R API",
+        "version": "1.0.0"
+    }
 
 # 인증 관련 엔드포인트
 api_router.include_router(auth.router, prefix="/auth", tags=["인증"])

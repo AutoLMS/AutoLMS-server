@@ -1,10 +1,8 @@
-from bs4 import BeautifulSoup
-import re
 import logging
-from typing import List, Dict, Any, Optional, Tuple
-from urllib.parse import urlparse
-from datetime import datetime
-import os
+import re
+from typing import List, Dict, Any, Optional
+
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +69,17 @@ class EclassParser:
         }
 
         menu_items = soup.find_all('li', class_='course_menu_item')
+        logger.info(f"메뉴 파싱: {len(menu_items)}개 메뉴 항목 발견")
+        
+        if not menu_items:
+            # 대안 셀렉터 시도
+            menu_items = soup.find_all('li', id=lambda x: x and x.startswith('st_'))
+            logger.info(f"대안 셀렉터로 {len(menu_items)}개 메뉴 항목 발견")
+        
         for item in menu_items:
             menu_id = item.get('id', '')
+            logger.debug(f"메뉴 아이템 검사: id='{menu_id}'")
+            
             if menu_id in menu_mapping:
                 link = item.find('a')
                 if link:
@@ -82,13 +89,28 @@ class EclassParser:
                         'name': menu_name,
                         'url': menu_url
                     }
+                    logger.info(f"메뉴 발견: {menu_mapping[menu_id]} -> {menu_url}")
+                else:
+                    logger.warning(f"메뉴 {menu_id}에 링크가 없음")
+            else:
+                if menu_id:
+                    logger.debug(f"매핑되지 않은 메뉴 ID: {menu_id}")
+        
+        logger.info(f"최종 파싱된 메뉴: {list(menus.keys())}")
         return menus
 
     def parse_syllabus(self, html: str) -> Dict[str, Any]:
         """강의계획서 파싱"""
         try:
             soup = BeautifulSoup(html, 'html.parser')
-            return self._extract_syllabus_info(soup)
+            syllabus_data = self._extract_syllabus_info(soup)
+            
+            # HTML에서 article_id를 추출하고 syllabus_id로 매핑
+            article_id = self._extract_article_id_from_syllabus_html(html)
+            if article_id:
+                syllabus_data['syllabus_id'] = article_id
+                
+            return syllabus_data
         except Exception as e:
             logger.error(f"강의계획서 파싱 중 오류 발생: {e}")
             return {}
@@ -96,6 +118,7 @@ class EclassParser:
     def _extract_syllabus_info(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """강의계획서 정보 추출"""
         syllabus_info = {
+            'syllabus_id':{},
             '수업기본정보': {},
             '담당교수정보': {},
             '강의계획': {},
@@ -118,6 +141,8 @@ class EclassParser:
                 section_key = '강의계획'
             elif '[주별강의계획]' in section_title:
                 section_key = '주별강의계획'
+            elif 'syllabus_id' in section_title:
+                section_key = 'syllabus_id'
 
             if section_key and section_key in syllabus_info:
                 table = section.find_next('table')
@@ -269,6 +294,36 @@ class EclassParser:
 
         return None
 
+    def _extract_article_id_from_syllabus_html(self, html: str) -> Optional[str]:
+        """강의계획서 HTML에서 article_id 추출"""
+        try:
+            # URL 패턴 검색 (ARTL_NUM 파라미터)
+            url_pattern = r'ARTL_NUM=([\d]+)'
+            match = re.search(url_pattern, html)
+            if match:
+                return match.group(1)
+            
+            # form이나 input hidden 값에서 추출
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # input[name="ARTL_NUM"] 찾기
+            artl_input = soup.find('input', {'name': 'ARTL_NUM'})
+            if artl_input and artl_input.get('value'):
+                return artl_input.get('value')
+            
+            # onclick 이벤트에서 추출
+            onclick_elements = soup.find_all(attrs={'onclick': True})
+            for element in onclick_elements:
+                onclick = element.get('onclick', '')
+                if 'ARTL_NUM' in onclick:
+                    url_match = re.search(r'ARTL_NUM=([\d]+)', onclick)
+                    if url_match:
+                        return url_match.group(1)
+                        
+            return None
+        except Exception as e:
+            logger.error(f"강의계획서에서 article_id 추출 중 오류 발생: {e}")
+            return None
 
     def parse_notice_detail(self, html: str) -> Dict[str, Any]:
         """공지사항 상세 내용 파싱"""

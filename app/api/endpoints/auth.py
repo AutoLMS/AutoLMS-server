@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from typing import Any
 
@@ -16,7 +17,12 @@ async def register(
     auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
     """새 사용자 등록"""
-    result = await auth_service.register(email=user_in.email, password=user_in.password)
+    result = await auth_service.register(
+        email=user_in.email, 
+        password=user_in.password,
+        eclass_username=user_in.eclass_username,
+        eclass_password=user_in.eclass_password
+    )
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -45,6 +51,13 @@ async def login(
         "user": result.get("user", {})
     }
 
+
+@router.get("/me", response_model=UserOut)
+async def get_current_user_info(
+    current_user: dict = Depends(get_current_user)
+) -> Any:
+    """현재 사용자 정보 조회"""
+    return current_user
 
 @router.post("/logout")
 async def logout(

@@ -13,10 +13,25 @@ class CourseRepository(BaseRepository):
     
     async def get_by_user_id(self, db: AsyncSession, user_id: str) -> List[Course]:
         """사용자 ID로 코스 목록 조회 - courses 테이블의 user_id 필드 사용"""
-        query = select(Course).where(Course.user_id == user_id)
-        
-        result = await db.execute(query)
-        return result.scalars().all()
+        try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"데이터베이스 연결 시도: user_id={user_id}")
+            
+            query = select(Course).where(Course.user_id == user_id)
+            logger.info(f"쿼리 생성 완료: {query}")
+            
+            result = await db.execute(query)
+            logger.info("쿼리 실행 완료")
+            
+            courses = result.scalars().all()
+            logger.info(f"결과 조회 완료: {len(courses)}개")
+            return courses
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"데이터베이스 조회 중 오류: {type(e).__name__}: {e}")
+            raise
 
     async def get_by_course_id(self, db: AsyncSession, course_id: str) -> Course:
         """코스 ID로 단일 코스 조회"""

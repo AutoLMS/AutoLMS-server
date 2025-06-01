@@ -255,7 +255,7 @@ class FileHandler:
             except Exception as e:
                 logger.error(f"첨부파일 처리 중 오류 발생: {attachment_name}, {e}")
                 results.append({
-                    "name": attachment_name,
+                    "file_name": attachment_name,  # 키 이름 통일
                     "original_url": attachment_url,
                     "success": False,
                     "error": str(e),

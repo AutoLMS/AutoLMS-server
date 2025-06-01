@@ -15,6 +15,8 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     email: EmailStr
     password: str
+    eclass_username: str
+    eclass_password: str
 
 class UserLogin(UserBase):
     email: EmailStr
@@ -23,3 +25,4 @@ class UserLogin(UserBase):
 class UserOut(UserBase):
     id: str
     email: EmailStr
+    eclass_username: Optional[str] = None
