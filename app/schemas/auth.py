@@ -25,3 +25,4 @@ class UserLogin(UserBase):
 class UserOut(UserBase):
     id: str
     email: EmailStr
+    eclass_username: Optional[str] = None

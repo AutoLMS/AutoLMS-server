@@ -3,33 +3,50 @@ from typing import Optional, List
 from datetime import datetime
 
 class AttachmentBase(BaseModel):
-    source_type: str
-    source_id: str
-    file_name: str
+    user_id: str  # UUID string
+    course_id: str
+    related_type: str  # e.g., 'notices', 'materials', 'assignments'
+    related_id: int
+    original_filename: str
+    stored_filename: str
     file_size: Optional[int] = None
-    content_type: Optional[str] = None
-    storage_path: str
-    file_url: Optional[str] = None
+    file_type: Optional[str] = None
+    download_url: Optional[str] = None
+    storage_path: Optional[str] = None
+    file_name: Optional[str] = None
+    original_url: Optional[str] = None
+    source_id: Optional[str] = None
+    source_type: Optional[str] = None
 
 class AttachmentCreate(AttachmentBase):
-    user_id: str
+    pass
 
 class AttachmentUpdate(BaseModel):
-    file_url: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    user_id: Optional[str] = None
+    course_id: Optional[str] = None
+    related_type: Optional[str] = None
+    related_id: Optional[int] = None
+    original_filename: Optional[str] = None
+    stored_filename: Optional[str] = None
+    file_size: Optional[int] = None
+    file_type: Optional[str] = None
+    download_url: Optional[str] = None
+    storage_path: Optional[str] = None
+    file_name: Optional[str] = None
+    original_url: Optional[str] = None
+    source_id: Optional[str] = None
+    source_type: Optional[str] = None
 
 class AttachmentInDBBase(AttachmentBase):
     id: int
-    user_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
 
 class Attachment(AttachmentInDBBase):
-    pass
+    file_url: Optional[str] = None  # For compatibility - computed from download_url or storage_path
 
 class AttachmentList(BaseModel):
     attachments: List[Attachment]
