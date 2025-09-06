@@ -5,202 +5,270 @@ from postgrest.exceptions import APIError
 
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
+from app.services.eclass_service import EclassService
 
 
 class AuthService:
-    """Supabase Auth 기반 인증 서비스"""
+    """Supabase Auth + eClass 통합 인증 서비스"""
 
     def __init__(self, supabase_client=None):
         self.supabase = supabase_client or get_supabase_client()
 
-    async def register(self, email: str, password: str, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
-        """새 사용자 등록"""
+    async def eclass_register(self, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
+        """eClass 계정으로 회원가입 (Supabase Auth 활용)"""
         try:
-            # Supabase Auth에 사용자 등록
+            # 1. eClass 로그인 검증
+            eclass_service = EclassService()
+            login_success = await eclass_service.login(eclass_username, eclass_password)
+            
+            if not login_success:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="eClass 로그인 정보가 올바르지 않습니다."
+                )
+            
+            # 2. 가상 이메일 및 AutoLMS ID 생성
+            virtual_email = f"seoultech_{eclass_username}@autolms.internal"
+            autolms_id = f"seoultech_{eclass_username}"
+            
+            # 3. 중복 사용자 확인 (user_profiles에서 확인)
+            from supabase import create_client
+            service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            
+            existing_profile = service_client.table('user_profiles')\
+                .select('*')\
+                .eq('autolms_id', autolms_id)\
+                .execute()
+            
+            if existing_profile.data:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="이미 등록된 사용자입니다."
+                )
+            
+            # 4. Supabase Auth에 계정 생성
             auth_response = self.supabase.auth.sign_up({
-                "email": email,
-                "password": password
+                "email": virtual_email,
+                "password": eclass_password
             })
 
-            if auth_response.user:
-                # Service Key로 user_details 직접 생성 (RLS 우회)
-                try:
-                    print(f"🐛 DEBUG: Creating user_details for user_id: {auth_response.user.id}")
-                    print(f"🐛 DEBUG: eclass_username: {eclass_username}")
+            if not auth_response.user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="회원가입 처리 중 오류가 발생했습니다."
+                )
+
+            # 5. user_profiles에 eClass 정보 저장
+            try:
+                profile_data = {
+                    "user_id": auth_response.user.id,
+                    "autolms_id": autolms_id,
+                    "eclass_username": eclass_username,
+                    "eclass_session_token": await eclass_service.get_session_token() or ""
+                }
+                
+                service_client.table('user_profiles').insert(profile_data).execute()
+                
+                print(f"✅ user_profiles 생성 성공: {autolms_id}")
+                
+            except Exception as e:
+                print(f"❌ user_profiles 생성 실패: {e}")
+                # Auth 계정은 생성되었으므로 계속 진행
+            
+            # 6. 응답 생성
+            return {
+                "access_token": auth_response.session.access_token if auth_response.session else "",
+                "token_type": "bearer",
+                "user": {
+                    "id": auth_response.user.id,
+                    "username": autolms_id,
+                    "eclass_username": eclass_username,
+                    "created_at": str(auth_response.user.created_at) if auth_response.user.created_at else ""
+                }
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"회원가입 처리 중 오류가 발생했습니다: {str(e)}"
+            )
+    
+    async def eclass_login(self, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
+        """eClass 계정으로 로그인 (Supabase Auth 활용)"""
+        try:
+            # 1. eClass 로그인 먼저 검증
+            eclass_service = EclassService()
+            eclass_login_success = await eclass_service.login(eclass_username, eclass_password)
+            
+            if not eclass_login_success:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="eClass 로그인 정보가 올바르지 않습니다."
+                )
+            
+            # 2. 가상 이메일로 Supabase Auth 로그인 시도
+            virtual_email = f"seoultech_{eclass_username}@autolms.internal"
+            
+            try:
+                auth_response = self.supabase.auth.sign_in_with_password({
+                    "email": virtual_email,
+                    "password": eclass_password
+                })
+            except Exception as e:
+                # Supabase Auth 계정이 없으면 자동으로 생성
+                print(f"Supabase Auth 로그인 실패, 계정 자동 생성: {e}")
+                return await self.eclass_register(eclass_username, eclass_password)
+
+            if not auth_response.user or not auth_response.session:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="로그인 정보가 올바르지 않습니다."
+                )
+
+            # 2. user_profiles에서 추가 정보 조회 및 생성
+            try:
+                profile_response = self.supabase.table('user_profiles')\
+                    .select('*')\
+                    .eq('user_id', auth_response.user.id)\
+                    .execute()
+                
+                if profile_response.data and len(profile_response.data) > 0:
+                    profile_data = profile_response.data[0]
+                else:
+                    # user_profiles에 데이터가 없으면 생성
+                    print(f"user_profiles 데이터가 없습니다. 자동 생성 중...")
+                    autolms_id = f"seoultech_{eclass_username}"
                     
-                    # Service Key 클라이언트 사용
+                    # Service key 클라이언트로 생성 (RLS 우회)
                     from supabase import create_client
                     service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
                     
-                    user_details_response = service_client.table('user_details').insert({
+                    new_profile = {
                         "user_id": auth_response.user.id,
+                        "autolms_id": autolms_id,
                         "eclass_username": eclass_username,
-                        "eclass_password": eclass_password
-                    }).execute()
-                    
-                    print(f"🐛 DEBUG: user_details 생성 성공: {user_details_response.data}")
-                    
-                except Exception as e:
-                    print(f"❌ ERROR: Failed to create user_details: {e}")
-                    print(f"❌ ERROR TYPE: {type(e)}")
-                    import traceback
-                    traceback.print_exc()
-                
-                return {
-                    "user": {
-                        "id": auth_response.user.id,
-                        "email": auth_response.user.email,
-                        "eclass_username": eclass_username
+                        "eclass_session_token": ""
                     }
-                }
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="회원가입 처리 중 오류가 발생했습니다."
-            )
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
-            )
-
-    async def login(self, email: str, password: str) -> Dict[str, Any]:
-        """사용자 로그인"""
-        try:
-            # 개발 환경에서 테스트 계정은 이메일 확인 없이 가짜 토큰 생성
-            if settings.ENVIRONMENT == "development" and email.startswith("devtest"):
-                # 간단한 가짜 토큰과 사용자 정보 반환
-                fake_user_id = "1ae6fcaa-c18d-40a7-83bb-56715689b47c"  # 등록된 사용자 ID
-                fake_token = f"dev_token_{fake_user_id}"
+                    
+                    service_client.table('user_profiles').insert(new_profile).execute()
+                    profile_data = new_profile
+                    print(f"✅ user_profiles 자동 생성 완료: {autolms_id}")
                 
-                return {
-                    "session": {
-                        "access_token": fake_token,
-                        "refresh_token": fake_token
-                    },
-                    "user": {
-                        "id": fake_user_id,
-                        "email": email
-                    }
+            except Exception as e:
+                print(f"Warning: Could not fetch/create user profile: {e}")
+                profile_data = {"autolms_id": f"seoultech_{eclass_username}", "eclass_username": eclass_username}
+
+            # 3. eClass 세션 토큰 업데이트 (optional)
+            try:
+                # eClass 세션 토큰은 나중에 필요할 때 업데이트하도록 함
+                pass
+            except Exception as e:
+                print(f"Warning: Could not update eClass session: {e}")
+
+            # 4. 응답 생성
+            return {
+                "access_token": auth_response.session.access_token,
+                "token_type": "bearer",
+                "user": {
+                    "id": auth_response.user.id,
+                    "username": profile_data.get("autolms_id", f"seoultech_{eclass_username}"),
+                    "eclass_username": profile_data.get("eclass_username", eclass_username),
+                    "created_at": str(auth_response.user.created_at) if auth_response.user.created_at else ""
                 }
+            }
             
-            auth_response = self.supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
-
-            if auth_response.user and auth_response.session:
-                return {
-                    "session": {
-                        "access_token": auth_response.session.access_token,
-                        "refresh_token": auth_response.session.refresh_token
-                    },
-                    "user": {
-                        "id": auth_response.user.id,
-                        "email": auth_response.user.email
-                    }
-                }
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="로그인 처리 중 오류가 발생했습니다."
-            )
-
+        except HTTPException:
+            raise
         except Exception as e:
-            error_message = str(e)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=error_message
+                detail=f"로그인 처리 중 오류가 발생했습니다: {str(e)}"
             )
 
     async def get_current_user(self, token: str) -> Dict[str, Any]:
-        """토큰에서 현재 사용자 정보 추출"""
+        """현재 사용자 정보 조회 (Supabase Auth 기반)"""
         try:
-            # 개발 환경에서 가짜 토큰 처리
-            if settings.ENVIRONMENT == "development" and token.startswith("dev_token_"):
-                user_id = token.replace("dev_token_",
-                                        "")
-                return {
-                    "id": user_id,
-                    "email": "devtest@gmail.com",
-                    "token": token
-                }
+            # JWT 토큰 직접 검증
+            user_response = self.supabase.auth.get_user(jwt=token)
+
+            if not user_response or not user_response.user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="유효하지 않은 인증 정보입니다."
+                )
+
+            user = user_response.user
             
-            # Supabase 클라이언트의 세션 관리 활용
-            self.supabase.auth.set_session(token, token)  # access_token과 refresh_token 설정
-            user = self.supabase.auth.get_user()
-
-            if user and user.user:  # user 객체가 있고 user 정보가 있는지 확인
-                user_data = {
-                    "id": user.user.id,
-                    "email": user.user.email,
-                    "token": token
-                }
+            # 세션 설정 (RLS 정책을 위해 필요)
+            self.supabase.auth.set_session(access_token=token, refresh_token="")
+            
+            # user_profiles에서 추가 정보 가져오기
+            try:
+                profile_response = self.supabase.table('user_profiles')\
+                    .select('*')\
+                    .eq('user_id', user.id)\
+                    .execute()
                 
-                # user_details에서 e-Class 정보 가져오기
-                try:
-                    details_response = self.supabase.table('user_details').select('eclass_username').eq('user_id', user.user.id).execute()
-                    if details_response.data:
-                        user_data["eclass_username"] = details_response.data[0].get("eclass_username")
-                except Exception as e:
-                    # e-Class 정보가 없어도 기본 사용자 정보는 반환
-                    print(f"Warning: Could not fetch eclass details: {e}")
+                if profile_response.data and len(profile_response.data) > 0:
+                    profile_data = profile_response.data[0]
+                else:
+                    profile_data = {}
                 
-                return user_data
+            except Exception as e:
+                print(f"Warning: Could not fetch user profile: {e}")
+                profile_data = {}
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="유효하지 않은 인증 정보입니다."
-            )
+            return {
+                "id": user.id,
+                "username": profile_data.get("autolms_id", ""),
+                "eclass_username": profile_data.get("eclass_username", ""),
+                "email": user.email,
+                "created_at": user.created_at,
+                "token": token
+            }
 
         except HTTPException:
-            # HTTPException은 그대로 전달
             raise
         except Exception as e:
-            # 구체적인 에러 메시지 포함
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"인증 처리 중 오류가 발생했습니다: {str(e)}"
             )
     
     async def get_user_eclass_credentials(self, user_id: str) -> Dict[str, str]:
-        """사용자의 e-Class 로그인 정보 조회 - 환경변수 우선 사용"""
+        """사용자의 e-Class 로그인 정보 조회"""
         try:
             # 환경변수에 계정 정보가 있으면 우선 사용
             if settings.ECLASS_USERNAME and settings.ECLASS_PASSWORD:
-                print(f"🐛 DEBUG: 환경변수 eClass 계정 우선 사용: {settings.ECLASS_USERNAME}")
                 return {
                     "eclass_username": settings.ECLASS_USERNAME,
                     "eclass_password": settings.ECLASS_PASSWORD
                 }
             
-            # 환경변수가 없으면 사용자별 계정 사용
-            details_response = self.supabase.table('user_details').select('eclass_username, eclass_password').eq('user_id', user_id).execute()
-            print(f"🐛 DEBUG: user_details 조회 결과: {details_response.data}")
+            # user_profiles에서 eClass 정보 조회  
+            profile_response = self.supabase.table('user_profiles')\
+                .select('eclass_username')\
+                .eq('user_id', user_id)\
+                .single()\
+                .execute()
             
-            if details_response.data and len(details_response.data) > 0:
-                user_data = details_response.data[0]
-                eclass_username = user_data.get("eclass_username")
-                eclass_password = user_data.get("eclass_password")
-                
-                print(f"🐛 DEBUG: eclass_username from DB: {eclass_username}")
-                
-                # eclass 정보가 실제로 있는지 확인
-                if eclass_username and eclass_password:
-                    print(f"🐛 DEBUG: 사용자별 eClass 계정 사용: {eclass_username}")
+            if profile_response.data:
+                eclass_username = profile_response.data.get("eclass_username")
+                if eclass_username:
+                    # 실제 비밀번호는 저장하지 않으므로 환경변수 사용
                     return {
                         "eclass_username": eclass_username,
-                        "eclass_password": eclass_password
+                        "eclass_password": settings.ECLASS_PASSWORD or ""
                     }
                     
-            print(f"🐛 DEBUG: 사용 가능한 eclass 계정이 없음")
-            # 아무 계정도 없으면 빈 값 반환
             return {
-                "eclass_username": "",
-                "eclass_password": ""
+                "eclass_username": settings.ECLASS_USERNAME or "",
+                "eclass_password": settings.ECLASS_PASSWORD or ""
             }
         except Exception as e:
             print(f"Warning: Could not fetch eclass credentials: {e}")
-            # 환경변수 fallback
             return {
                 "eclass_username": settings.ECLASS_USERNAME or "",
                 "eclass_password": settings.ECLASS_PASSWORD or ""
@@ -209,28 +277,13 @@ class AuthService:
     async def logout(self, token: str) -> Dict[str, Any]:
         """사용자 로그아웃"""
         try:
-            # 이미 로그아웃된 상태인지 확인
-            try:
-                user = self.supabase.auth.get_user(token)
-                if not user:
-                    return {"status": "already_logged_out", "message": "이미 로그아웃된 상태입니다."}
-            except Exception as e:
-                # 토큰이 유효하지 않은 경우 - 이미 로그아웃되었거나 만료된 경우
-                return {"status": "already_logged_out", "message": "이미 로그아웃된 상태입니다."}
-
-            # Supabase의 sign_out 메서드를 모방하여 구현
-            try:
-                # access_token을 전달하여 서버 측 로그아웃 처리
-                self.supabase.auth.admin.sign_out(token)
-            except Exception:
-                # 오류 무시 - Supabase도 AuthApiError를 무시함
-                pass
-
-            # 로컬 세션 제거
-            # 클라이언트 측에서는 storage 관리가 필요하지만, 서버 측에서는 세션만 무효화하면 됨
+            # Supabase Auth 로그아웃
+            self.supabase.auth.set_session(token, token)
+            self.supabase.auth.sign_out()
+            
             return {"status": "success", "message": "로그아웃되었습니다."}
 
         except Exception as e:
             # 예상치 못한 오류 처리
-            # logging.error(f"로그아웃 처리 중 오류: {str(e)}")
-            raise Exception(f"로그아웃 처리 중 오류가 발생했습니다: {str(e)}")
+            print(f"로그아웃 처리 중 오류: {str(e)}")
+            return {"status": "success", "message": "로그아웃되었습니다."}  # 로그아웃은 항상 성공으로 처리

@@ -1,6 +1,6 @@
 from typing import Generator, Optional, Any, AsyncGenerator
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import AsyncSessionLocal
@@ -11,7 +11,7 @@ from app.services.eclass_parser import EclassParser
 from app.services.file_handler import FileHandler
 from app.core.supabase_client import get_supabase_client
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+bearer_scheme = HTTPBearer()
 
 _eclass_service = None
 
@@ -46,11 +46,13 @@ def get_eclass_service(
 
 # 사용자 인증 의존성
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token = Depends(bearer_scheme),
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """현재 로그인한 사용자 확인"""
-    return await auth_service.get_current_user(token)
+    # HTTPBearer에서는 token.credentials로 실제 토큰 값을 가져옴
+    actual_token = token.credentials if hasattr(token, 'credentials') else str(token)
+    return await auth_service.get_current_user(actual_token)
 
 # 데이터베이스 세션 의존성
 async def get_db_session():

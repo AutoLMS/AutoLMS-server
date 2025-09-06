@@ -52,13 +52,14 @@ class EclassService:
         from app.core.config import settings
         return await self.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
 
-    async def get_courses(self, user_id: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
+    async def get_courses(self, user_id: str, force_refresh: bool = False, is_jwt_user: bool = False) -> List[Dict[str, Any]]:
         """
         강의 목록 조회 및 DB 동기화
 
         Args:
             user_id: 사용자 ID
             force_refresh: 강제 새로고침 여부
+            is_jwt_user: JWT 기반 사용자 여부
 
         Returns:
             List[Dict[str, Any]]: 강의 목록
@@ -70,9 +71,9 @@ class EclassService:
             logger.error("로그인되지 않은 상태에서 강의 목록 조회 시도")
             return []
 
-        # 이미 저장된 강의 목록 가져오기 - Supabase 클라이언트 사용
+        # 이미 저장된 강의 목록 가져오기 - JWT 사용자는 Service Key 사용
         from app.db.repositories.supabase_course_repository import SupabaseCourseRepository
-        course_repo = SupabaseCourseRepository()
+        course_repo = SupabaseCourseRepository(use_service_key=is_jwt_user)
         existing_courses = await course_repo.get_by_user_id(user_id)
 
         # 강제 새로고침이 아니고 저장된 강의가 있으면 Course 스키마 형식으로 변환하여 반환
@@ -119,8 +120,9 @@ class EclassService:
                     if updated_course:
                         updated_courses.append(updated_course)
                 else:
-                    # 새 강의 추가
-                    new_course = await course_repo.create(**course_dict)
+                    # 새 강의 추가 (course_dict에서 user_id 제거)
+                    course_data = {k: v for k, v in course_dict.items() if k != 'user_id'}
+                    new_course = await course_repo.upsert_with_user_enrollment(user_id, **course_data)
                     if new_course:
                         updated_courses.append(new_course)
             except Exception as e:

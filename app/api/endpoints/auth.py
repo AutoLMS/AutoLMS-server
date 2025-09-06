@@ -1,72 +1,59 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from typing import Any
 
-from app.schemas.auth import UserCreate, Token, UserOut
+from app.schemas.auth import EClassAuthRequest, EClassToken
 from app.services.auth_service import AuthService
-from app.api.deps import get_auth_service, get_current_user
+from app.api.deps import get_auth_service
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+bearer_scheme = HTTPBearer()
 
-@router.post("/register", response_model=UserOut)
+@router.post("/register", response_model=EClassToken)
 async def register(
-    user_in: UserCreate,
+    auth_request: EClassAuthRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
-    """새 사용자 등록"""
-    result = await auth_service.register(
-        email=user_in.email, 
-        password=user_in.password,
-        eclass_username=user_in.eclass_username,
-        eclass_password=user_in.eclass_password
+    """eClass 계정으로 회원가입"""
+    result = await auth_service.eclass_register(
+        eclass_username=auth_request.eclass_username,
+        eclass_password=auth_request.eclass_password
     )
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="회원가입 중 오류가 발생했습니다."
-        )
-    
-    return result.get("user", {})
+    return result
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=EClassToken)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    auth_request: EClassAuthRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
-    """로그인 및 토큰 발급"""
-    result = await auth_service.login(email=form_data.username, password=form_data.password)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    """eClass 계정으로 로그인"""
+    result = await auth_service.eclass_login(
+        eclass_username=auth_request.eclass_username,
+        eclass_password=auth_request.eclass_password
+    )
+    return result
 
-    return {
-        "access_token": result.get("session", {}).get("access_token", ""),
-        "token_type": "bearer",
-        "user": result.get("user", {})
-    }
-
-
-@router.get("/me", response_model=UserOut)
+@router.get("/me")
 async def get_current_user_info(
-    current_user: dict = Depends(get_current_user)
+    token: str = Depends(bearer_scheme),
+    auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
     """현재 사용자 정보 조회"""
+    # HTTPBearer에서는 token.credentials로 실제 토큰 값을 가져옴
+    actual_token = token.credentials if hasattr(token, 'credentials') else str(token)
+    current_user = await auth_service.get_current_user(actual_token)
     return current_user
 
 @router.post("/logout")
 async def logout(
-        token: str = Depends(oauth2_scheme),  # 헤더에서 토큰을 가져옴
-        auth_service: AuthService = Depends(get_auth_service)
+    token: str = Depends(bearer_scheme),
+    auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
     """로그아웃"""
     try:
-        result = await auth_service.logout(token)
+        actual_token = token.credentials if hasattr(token, 'credentials') else str(token)
+        result = await auth_service.logout(actual_token)
 
         # 이미 로그아웃된 상태 처리
         if result.get("status") == "already_logged_out":
