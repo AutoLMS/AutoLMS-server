@@ -75,10 +75,10 @@ class EclassService:
         course_repo = SupabaseCourseRepository()
         existing_courses = await course_repo.get_by_user_id(user_id)
 
-        # 강제 새로고침이 아니고 저장된 강의가 있으면 그대로 반환
+        # 강제 새로고침이 아니고 저장된 강의가 있으면 Course 스키마 형식으로 변환하여 반환
         if not force_refresh and existing_courses:
             logger.info(f"저장된 강의 목록 반환: {len(existing_courses)}개")
-            return existing_courses  # Course 모델이 dict로 변환되도록 수정 필요
+            return self._transform_db_courses_to_schema(existing_courses)
 
         # e-Class에서 강의 목록 가져오기
         html = await self.session.get_course_list()
@@ -128,8 +128,45 @@ class EclassService:
                 continue
 
         logger.info(f"강의 목록 동기화 완료: {len(updated_courses)}개")
-        return updated_courses
+        return self._transform_db_courses_to_schema(updated_courses)
 
+    def _transform_db_courses_to_schema(self, db_courses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        데이터베이스 강의 데이터를 Course 스키마 형식으로 변환
+        
+        Args:
+            db_courses: 데이터베이스에서 가져온 강의 데이터 리스트
+            
+        Returns:
+            List[Dict[str, Any]]: Course 스키마와 호환되는 데이터 리스트
+        """
+        transformed_courses = []
+        
+        for course in db_courses:
+            if not course:
+                continue
+                
+            # 데이터베이스 필드를 Course 스키마 필드로 매핑
+            transformed_course = {
+                'id': course.get('course_id', course.get('id', '')),  # course_id를 id로 사용
+                'name': course.get('course_name', course.get('name', '')),  # course_name을 name으로 사용
+                'code': course.get('code', course.get('instructor', '')),  # instructor를 임시로 code로 사용 (또는 빈 문자열)
+                'time': course.get('time', course.get('semester', '')),  # semester를 임시로 time으로 사용 (또는 빈 문자열)
+                'created_at': course.get('created_at', datetime.now()),
+                'updated_at': course.get('updated_at', datetime.now())
+            }
+            
+            # datetime 타입으로 변환이 필요한 경우
+            for field in ['created_at', 'updated_at']:
+                if isinstance(transformed_course[field], str):
+                    try:
+                        transformed_course[field] = datetime.fromisoformat(transformed_course[field].replace('Z', '+00:00'))
+                    except:
+                        transformed_course[field] = datetime.now()
+            
+            transformed_courses.append(transformed_course)
+            
+        return transformed_courses
 
     async def crawl_course(self, user_id: str, course_id: str, auto_download: bool = False) -> Dict[
         str, Any]:

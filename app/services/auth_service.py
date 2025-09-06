@@ -23,18 +23,28 @@ class AuthService:
             })
 
             if auth_response.user:
-                # user_details 테이블에 e-Class 정보 저장
+                # Service Key로 user_details 직접 생성 (RLS 우회)
                 try:
-                    user_details_response = self.supabase.table('user_details').insert({
+                    print(f"🐛 DEBUG: Creating user_details for user_id: {auth_response.user.id}")
+                    print(f"🐛 DEBUG: eclass_username: {eclass_username}")
+                    
+                    # Service Key 클라이언트 사용
+                    from supabase import create_client
+                    service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+                    
+                    user_details_response = service_client.table('user_details').insert({
                         "user_id": auth_response.user.id,
                         "eclass_username": eclass_username,
                         "eclass_password": eclass_password
                     }).execute()
                     
+                    print(f"🐛 DEBUG: user_details 생성 성공: {user_details_response.data}")
+                    
                 except Exception as e:
-                    # Auth에서 사용자는 생성되었지만 user_details 저장 실패
-                    # 이 경우 rollback이 어려우므로 경고만 로그
-                    print(f"Warning: User created but eclass details failed to save: {e}")
+                    print(f"❌ ERROR: Failed to create user_details: {e}")
+                    print(f"❌ ERROR TYPE: {type(e)}")
+                    import traceback
+                    traceback.print_exc()
                 
                 return {
                     "user": {
@@ -153,26 +163,47 @@ class AuthService:
             )
     
     async def get_user_eclass_credentials(self, user_id: str) -> Dict[str, str]:
-        """사용자의 e-Class 로그인 정보 조회"""
+        """사용자의 e-Class 로그인 정보 조회 - 환경변수 우선 사용"""
         try:
-            details_response = self.supabase.table('user_details').select('eclass_username, eclass_password').eq('user_id', user_id).execute()
-            if details_response.data:
-                return {
-                    "eclass_username": details_response.data[0].get("eclass_username"),
-                    "eclass_password": details_response.data[0].get("eclass_password")
-                }
-            else:
-                # Fallback to environment variables (기존 방식)
+            # 환경변수에 계정 정보가 있으면 우선 사용
+            if settings.ECLASS_USERNAME and settings.ECLASS_PASSWORD:
+                print(f"🐛 DEBUG: 환경변수 eClass 계정 우선 사용: {settings.ECLASS_USERNAME}")
                 return {
                     "eclass_username": settings.ECLASS_USERNAME,
                     "eclass_password": settings.ECLASS_PASSWORD
                 }
+            
+            # 환경변수가 없으면 사용자별 계정 사용
+            details_response = self.supabase.table('user_details').select('eclass_username, eclass_password').eq('user_id', user_id).execute()
+            print(f"🐛 DEBUG: user_details 조회 결과: {details_response.data}")
+            
+            if details_response.data and len(details_response.data) > 0:
+                user_data = details_response.data[0]
+                eclass_username = user_data.get("eclass_username")
+                eclass_password = user_data.get("eclass_password")
+                
+                print(f"🐛 DEBUG: eclass_username from DB: {eclass_username}")
+                
+                # eclass 정보가 실제로 있는지 확인
+                if eclass_username and eclass_password:
+                    print(f"🐛 DEBUG: 사용자별 eClass 계정 사용: {eclass_username}")
+                    return {
+                        "eclass_username": eclass_username,
+                        "eclass_password": eclass_password
+                    }
+                    
+            print(f"🐛 DEBUG: 사용 가능한 eclass 계정이 없음")
+            # 아무 계정도 없으면 빈 값 반환
+            return {
+                "eclass_username": "",
+                "eclass_password": ""
+            }
         except Exception as e:
             print(f"Warning: Could not fetch eclass credentials: {e}")
-            # Fallback to environment variables
+            # 환경변수 fallback
             return {
-                "eclass_username": settings.ECLASS_USERNAME,
-                "eclass_password": settings.ECLASS_PASSWORD
+                "eclass_username": settings.ECLASS_USERNAME or "",
+                "eclass_password": settings.ECLASS_PASSWORD or ""
             }
 
     async def logout(self, token: str) -> Dict[str, Any]:
