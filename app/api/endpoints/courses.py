@@ -36,7 +36,15 @@ async def get_courses(
 
     # 프로덕션 환경에서는 실제 eClass 서비스 사용
     try:
-        login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
+        # 사용자별 eClass 계정으로 로그인
+        from app.services.auth_service import AuthService
+        auth_service = AuthService()
+        eclass_credentials = await auth_service.get_user_eclass_credentials(current_user["id"])
+        
+        login_success = await eclass_service.login(
+            eclass_credentials["eclass_username"], 
+            eclass_credentials["eclass_password"]
+        )
         if not login_success:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,7 +56,7 @@ async def get_courses(
             detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
         )
 
-    courses = await eclass_service.get_courses(current_user["id"])
+    courses = await eclass_service.get_courses(current_user["id"], force_refresh=True)
     return {
         "courses": courses,
         "total": len(courses)
