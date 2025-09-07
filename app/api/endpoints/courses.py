@@ -124,7 +124,15 @@ async def get_course(
     # 프로덕션 환경에서는 실제 eClass 서비스 사용
     if not await eclass_service.is_logged_in():
         try:
-            login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
+            # AuthService를 통해 eClass 로그인 정보 가져오기
+            from app.services.auth_service import AuthService
+            auth_service = AuthService()
+            eclass_credentials = await auth_service.get_user_eclass_credentials(current_user["id"])
+            
+            login_success = await eclass_service.login(
+                eclass_credentials["eclass_username"], 
+                eclass_credentials["eclass_password"]
+            )
             if not login_success:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -168,7 +176,15 @@ async def refresh_courses(
     # 프로덕션 환경에서는 실제 eClass 서비스 사용    
     if not await eclass_service.is_logged_in():
         try:
-            login_success = await eclass_service.login(settings.ECLASS_USERNAME, settings.ECLASS_PASSWORD)
+            # AuthService를 통해 eClass 로그인 정보 가져오기
+            from app.services.auth_service import AuthService
+            auth_service = AuthService()
+            eclass_credentials = await auth_service.get_user_eclass_credentials(current_user["id"])
+            
+            login_success = await eclass_service.login(
+                eclass_credentials["eclass_username"], 
+                eclass_credentials["eclass_password"]
+            )
             if not login_success:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

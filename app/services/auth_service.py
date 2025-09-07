@@ -64,6 +64,7 @@ class AuthService:
                     "user_id": auth_response.user.id,
                     "autolms_id": autolms_id,
                     "eclass_username": eclass_username,
+                    "eclass_password": eclass_password,
                     "eclass_session_token": await eclass_service.get_session_token() or ""
                 }
                 
@@ -240,39 +241,40 @@ class AuthService:
     async def get_user_eclass_credentials(self, user_id: str) -> Dict[str, str]:
         """사용자의 e-Class 로그인 정보 조회"""
         try:
-            # 환경변수에 계정 정보가 있으면 우선 사용
-            if settings.ECLASS_USERNAME and settings.ECLASS_PASSWORD:
-                return {
-                    "eclass_username": settings.ECLASS_USERNAME,
-                    "eclass_password": settings.ECLASS_PASSWORD
-                }
+            # Service Key를 사용하여 user_profiles에서 정보 조회
+            from supabase import create_client
+            service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
             
-            # user_profiles에서 eClass 정보 조회  
-            profile_response = self.supabase.table('user_profiles')\
-                .select('eclass_username')\
+            profile_response = service_client.table('user_profiles')\
+                .select('eclass_username, eclass_password')\
                 .eq('user_id', user_id)\
                 .single()\
                 .execute()
             
             if profile_response.data:
                 eclass_username = profile_response.data.get("eclass_username")
-                if eclass_username:
-                    # 실제 비밀번호는 저장하지 않으므로 환경변수 사용
+                eclass_password = profile_response.data.get("eclass_password")
+                
+                if eclass_username and eclass_password:
                     return {
                         "eclass_username": eclass_username,
-                        "eclass_password": settings.ECLASS_PASSWORD or ""
+                        "eclass_password": eclass_password
                     }
-                    
-            return {
-                "eclass_username": settings.ECLASS_USERNAME or "",
-                "eclass_password": settings.ECLASS_PASSWORD or ""
-            }
+            
+            # 데이터를 찾을 수 없으면 오류 발생
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="사용자의 eClass 로그인 정보를 찾을 수 없습니다."
+            )
+            
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"Warning: Could not fetch eclass credentials: {e}")
-            return {
-                "eclass_username": settings.ECLASS_USERNAME or "",
-                "eclass_password": settings.ECLASS_PASSWORD or ""
-            }
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="eClass 로그인 정보 조회 중 오류가 발생했습니다."
+            )
 
     async def logout(self, token: str) -> Dict[str, Any]:
         """사용자 로그아웃"""
