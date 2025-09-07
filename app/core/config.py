@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     ECLASS_USERNAME: str
     ECLASS_PASSWORD: str
     ECLASS_BASE_URL: str = "https://eclass.seoultech.ac.kr"
+    ECLASS_ENCRYPTION_KEY: Optional[str] = None
 
     # 파일 설정
     DOWNLOAD_DIR: str = "./downloads"
