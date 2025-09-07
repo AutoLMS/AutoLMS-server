@@ -6,6 +6,7 @@ from postgrest.exceptions import APIError
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
 from app.services.eclass_service import EclassService
+from app.services.encryption_service import get_encryption_service
 
 
 class AuthService:
@@ -58,13 +59,16 @@ class AuthService:
                     detail="회원가입 처리 중 오류가 발생했습니다."
                 )
 
-            # 5. user_profiles에 eClass 정보 저장
+            # 5. user_profiles에 eClass 정보 저장 (비밀번호 암호화)
             try:
+                encryption_service = get_encryption_service()
+                encrypted_password = encryption_service.encrypt_password(eclass_password)
+                
                 profile_data = {
                     "user_id": auth_response.user.id,
                     "autolms_id": autolms_id,
                     "eclass_username": eclass_username,
-                    "eclass_password": eclass_password,
+                    "eclass_password": encrypted_password,
                     "eclass_session_token": await eclass_service.get_session_token() or ""
                 }
                 
@@ -253,12 +257,30 @@ class AuthService:
             
             if profile_response.data:
                 eclass_username = profile_response.data.get("eclass_username")
-                eclass_password = profile_response.data.get("eclass_password")
+                encrypted_password = profile_response.data.get("eclass_password")
                 
-                if eclass_username and eclass_password:
+                if eclass_username and encrypted_password:
+                    # 암호화된 비밀번호 복호화
+                    encryption_service = get_encryption_service()
+                    
+                    # 이미 암호화된 비밀번호인지 확인
+                    if encryption_service.is_encrypted(encrypted_password):
+                        decrypted_password = encryption_service.decrypt_password(encrypted_password)
+                    else:
+                        # 평문 비밀번호인 경우 (기존 데이터 호환성)
+                        decrypted_password = encrypted_password
+                        
+                        # 평문을 암호화해서 다시 저장
+                        new_encrypted = encryption_service.encrypt_password(encrypted_password)
+                        service_client.table('user_profiles')\
+                            .update({'eclass_password': new_encrypted})\
+                            .eq('user_id', user_id)\
+                            .execute()
+                        print(f"🔐 기존 평문 비밀번호를 암호화했습니다: {eclass_username}")
+                    
                     return {
                         "eclass_username": eclass_username,
-                        "eclass_password": eclass_password
+                        "eclass_password": decrypted_password
                     }
             
             # 데이터를 찾을 수 없으면 오류 발생
