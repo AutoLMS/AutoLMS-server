@@ -1,11 +1,21 @@
 from typing import List, Dict, Any
-from app.db.repositories.supabase_base_repository import SupabaseBaseRepository
+from supabase import Client, create_client
+from app.core.supabase_client import get_supabase_client
+from app.core.config import settings
 
-class SupabaseAttachmentRepository(SupabaseBaseRepository):
+class SupabaseAttachmentRepository:
     """Supabase를 사용한 첨부파일 저장소"""
     
-    def __init__(self):
-        super().__init__("attachments")
+    def __init__(self, use_service_key: bool = False):
+        if use_service_key:
+            # Service Key 사용 (RLS 우회)
+            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            print("🐛 DEBUG: Attachment Repository - Service Key 클라이언트 사용")
+        else:
+            # 일반 클라이언트
+            self.supabase: Client = get_supabase_client()
+            print("🐛 DEBUG: Attachment Repository - 일반 클라이언트 사용")
+        self.table_name = "attachments"
     
     async def get_by_source(self, source_id: str, source_type: str) -> List[Dict[str, Any]]:
         """소스 ID와 타입으로 첨부파일 조회"""
