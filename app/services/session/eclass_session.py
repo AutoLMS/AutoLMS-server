@@ -45,8 +45,10 @@ class EclassSession:
             response = await self.client.post(self.login_url, data=login_data)
             response.raise_for_status()
 
-            # 로그인 성공 확인
-            if "document.location.href=" in response.text or "main_form.acl" in response.text:
+            # 로그인 성공 확인 (실패 메시지가 없고 리다이렉트가 있는 경우)
+            if ("document.location.href=" in response.text and 
+                "로그인 정보가 일치하지 않습니다" not in response.text and
+                "login_form.acl" not in response.text) or "main_form.acl" in response.text:
                 self.user_id = username
                 self._is_logged_in = True
 
