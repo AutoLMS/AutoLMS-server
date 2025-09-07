@@ -20,7 +20,7 @@ async def get_attachment(
     current_user: dict = Depends(get_current_user)
 ) -> Any:
     """첨부파일 메타데이터 조회"""
-    attachment_repo = AttachmentRepository()
+    attachment_repo = AttachmentRepository(use_service_key=True)
 
     attachment = await attachment_repo.get_by_id(db, attachment_id)
     if not attachment or (attachment.user_id and attachment.user_id != current_user["id"]):
@@ -39,7 +39,7 @@ async def download_attachment(
     file_handler: FileHandler = Depends(get_file_handler)
 ) -> Any:
     """첨부파일 다운로드"""
-    attachment_repo = AttachmentRepository()
+    attachment_repo = AttachmentRepository(use_service_key=True)
 
     attachment = await attachment_repo.get_by_id(db, attachment_id)
     if not attachment or (attachment.user_id and attachment.user_id != current_user["id"]):
@@ -75,7 +75,7 @@ async def get_attachments_by_source(
     current_user: dict = Depends(get_current_user)
 ) -> Any:
     """소스별 첨부파일 목록 조회"""
-    attachment_repo = AttachmentRepository()
+    attachment_repo = AttachmentRepository(use_service_key=True)
 
     attachments = await attachment_repo.get_by_source(db, source_id, source_type)
 
@@ -94,7 +94,7 @@ async def search_attachments(
     current_user: dict = Depends(get_current_user)
 ) -> Any:
     """첨부파일 검색"""
-    attachment_repo = AttachmentRepository()
+    attachment_repo = AttachmentRepository(use_service_key=True)
 
     attachments = await attachment_repo.search(db, current_user["id"], query)
 

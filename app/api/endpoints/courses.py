@@ -99,7 +99,7 @@ async def crawl_all_courses(
                 detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
             )
 
-    return await eclass_service.crawl_all_courses(current_user["id"], auto_download)
+    return await eclass_service.crawl_all_courses(current_user["id"], auto_download, is_jwt_user=True)
 
 @router.get("/{course_id}", response_model=Course)
 async def get_course(

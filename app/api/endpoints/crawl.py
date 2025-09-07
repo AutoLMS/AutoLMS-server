@@ -17,7 +17,8 @@ async def crawl_all_courses(
     """모든 강의 자동 크롤링 시작"""
     result = await eclass_service.crawl_all_courses(
         user_id=current_user["id"],
-        auto_download=auto_download
+        auto_download=auto_download,
+        is_jwt_user=True
     )
 
     return result
@@ -33,7 +34,8 @@ async def crawl_specific_course(
     result = await eclass_service.crawl_course(
         user_id=current_user["id"],
         course_id=course_id,
-        auto_download=auto_download
+        auto_download=auto_download,
+        is_jwt_user=True
     )
 
     return result

@@ -170,7 +170,7 @@ class EclassService:
             
         return transformed_courses
 
-    async def crawl_course(self, user_id: str, course_id: str, auto_download: bool = False) -> Dict[
+    async def crawl_course(self, user_id: str, course_id: str, auto_download: bool = False, is_jwt_user: bool = False) -> Dict[
         str, Any]:
         """
         특정 강의 크롤링 작업 시작
@@ -200,7 +200,7 @@ class EclassService:
 
         # 작업 시작
         task = asyncio.create_task(
-            self._crawl_course_task(user_id, course_id, auto_download, task_id)
+            self._crawl_course_task(user_id, course_id, auto_download, task_id, is_jwt_user)
         )
 
         # 작업 관리
@@ -220,7 +220,7 @@ class EclassService:
             "course_id": course_id
         }
 
-    async def _crawl_course_task(self, user_id: str, course_id: str, auto_download: bool, task_id: str) -> \
+    async def _crawl_course_task(self, user_id: str, course_id: str, auto_download: bool, task_id: str, is_jwt_user: bool = False) -> \
             Dict[str, Any]:
         """
         강의 크롤링 작업 수행
@@ -781,7 +781,7 @@ class EclassService:
             result["errors"] += 1
             return result
 
-    async def crawl_all_courses(self, user_id: str, auto_download: bool = False) -> Dict[str, Any]:
+    async def crawl_all_courses(self, user_id: str, auto_download: bool = False, is_jwt_user: bool = False) -> Dict[str, Any]:
         """
         모든 강의 크롤링
 
@@ -807,7 +807,7 @@ class EclassService:
             }
 
         # 강의 목록 가져오기
-        courses = await self.get_courses(user_id, force_refresh=True)
+        courses = await self.get_courses(user_id, force_refresh=True, is_jwt_user=is_jwt_user)
 
         if not courses:
             logger.warning("크롤링할 강의가 없습니다")
@@ -820,7 +820,7 @@ class EclassService:
 
         # 작업 시작
         task = asyncio.create_task(
-            self._crawl_all_courses_task(user_id, courses, task_id, auto_download)
+            self._crawl_all_courses_task(user_id, courses, task_id, auto_download, is_jwt_user)
         )
 
         # 작업 관리
@@ -840,7 +840,7 @@ class EclassService:
             "courses": [course.get('course_name', course.get('name', 'Unknown')) if course else 'Unknown' for course in courses]
         }
 
-    async def get_notices(self, user_id: str, course_id: str) -> List[Dict[str, Any]]:
+    async def get_notices(self, user_id: str, course_id: str, is_jwt_user: bool = False) -> List[Dict[str, Any]]:
         """
         특정 강의의 공지사항 조회
 
@@ -854,8 +854,8 @@ class EclassService:
         logger.info(f"사용자 {user_id}의 강의 {course_id} 공지사항 조회")
 
         # 레포지토리 초기화
-        notice_repo = SupabaseNoticeRepository()
-        attachment_repo = SupabaseAttachmentRepository()
+        notice_repo = SupabaseNoticeRepository(use_service_key=is_jwt_user)
+        attachment_repo = SupabaseAttachmentRepository(use_service_key=is_jwt_user)
 
         # 저장된 공지사항 가져오기
         notices = await notice_repo.get_by_course_id(course_id)
@@ -874,7 +874,7 @@ class EclassService:
         logger.info(f"강의 {course_id}의 공지사항 {len(result)}개 반환")
         return result
 
-    async def get_materials(self, user_id: str, course_id: str) -> List[Dict[str, Any]]:
+    async def get_materials(self, user_id: str, course_id: str, is_jwt_user: bool = False) -> List[Dict[str, Any]]:
         """
         특정 강의의 강의자료 조회
 
@@ -888,8 +888,8 @@ class EclassService:
         logger.info(f"사용자 {user_id}의 강의 {course_id} 강의자료 조회")
 
         # 레포지토리 초기화
-        material_repo = SupabaseMaterialRepository()
-        attachment_repo = SupabaseAttachmentRepository()
+        material_repo = SupabaseMaterialRepository(use_service_key=is_jwt_user)
+        attachment_repo = SupabaseAttachmentRepository(use_service_key=is_jwt_user)
 
         # 저장된 강의자료 가져오기
         materials = await material_repo.get_by_course_id(course_id)
@@ -908,7 +908,7 @@ class EclassService:
         logger.info(f"강의 {course_id}의 강의자료 {len(result)}개 반환")
         return result
 
-    async def get_assignments(self, user_id: str, course_id: str) -> List[Dict[str, Any]]:
+    async def get_assignments(self, user_id: str, course_id: str, is_jwt_user: bool = False) -> List[Dict[str, Any]]:
         """
         특정 강의의 과제 조회
 
@@ -922,8 +922,8 @@ class EclassService:
         logger.info(f"사용자 {user_id}의 강의 {course_id} 과제 조회")
 
         # 레포지토리 초기화
-        assignment_repo = SupabaseAssignmentRepository()
-        attachment_repo = SupabaseAttachmentRepository()
+        assignment_repo = SupabaseAssignmentRepository(use_service_key=is_jwt_user)
+        attachment_repo = SupabaseAttachmentRepository(use_service_key=is_jwt_user)
 
         # 저장된 과제 가져오기
         assignments = await assignment_repo.get_by_course_id(course_id)
@@ -1034,7 +1034,7 @@ class EclassService:
         logger.info("EclassService 종료 완료")
 
     async def _crawl_all_courses_task(self, user_id: str, courses: List[Dict[str, Any]], task_id: str,
-                                      auto_download: bool = False) -> Dict[str, Any]:
+                                      auto_download: bool = False, is_jwt_user: bool = False) -> Dict[str, Any]:
         """
         모든 강의 크롤링 작업 수행
 
@@ -1083,7 +1083,7 @@ class EclassService:
 
                     # 개별 강의 크롤링
                     course_result = await self._crawl_course_task(
-                        user_id, course_id, auto_download, f"{task_id}_{course_id}"
+                        user_id, course_id, auto_download, f"{task_id}_{course_id}", is_jwt_user
                     )
 
                     # 결과 저장

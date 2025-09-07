@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
 
@@ -14,7 +14,7 @@ def get_test_data_service():
 
 @router.get("", response_model=Dict[str, Any])
 async def get_syllabus(
-    course_id: str,
+    course_id: str = Path(..., description="강의 ID"),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -39,7 +39,7 @@ async def get_syllabus(
         }
     
     try:
-        syllabus = await eclass_service.get_syllabus(current_user["id"], course_id, db)
+        syllabus = await eclass_service.get_syllabus(current_user["id"], course_id)
         return syllabus
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

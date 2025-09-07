@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,7 @@ def get_test_data_service():
 
 @router.get("/", response_model=NoticeList)
 async def get_notices(
-    course_id: str,
+    course_id: str = Path(..., description="강의 ID"),
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -31,7 +31,7 @@ async def get_notices(
             "total": len(notices)
         }
     
-    notices = await eclass_service.get_notices(current_user["id"], course_id, db)
+    notices = await eclass_service.get_notices(current_user["id"], course_id, is_jwt_user=True)
     return {
         "notices": notices,
         "total": len(notices)
@@ -39,8 +39,8 @@ async def get_notices(
 
 @router.get("/{notice_id}", response_model=Notice)
 async def get_notice(
-    course_id: str,
-    notice_id: str,
+    course_id: str = Path(..., description="강의 ID"),
+    notice_id: str = Path(..., description="공지사항 ID"),
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -60,7 +60,7 @@ async def get_notice(
             detail="공지사항을 찾을 수 없습니다"
         )
     
-    notices = await eclass_service.get_notices(current_user["id"], course_id, db)
+    notices = await eclass_service.get_notices(current_user["id"], course_id, is_jwt_user=True)
     for notice in notices:
         if notice["article_id"] == notice_id:
             return notice
@@ -72,7 +72,7 @@ async def get_notice(
 
 @router.post("/refresh")
 async def refresh_notices(
-    course_id: str,
+    course_id: str = Path(..., description="강의 ID"),
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -89,10 +89,10 @@ async def refresh_notices(
             "message": "공지사항 새로고침이 완료되었습니다"
         }
     
-    result = await eclass_service.crawl_course(current_user["id"], course_id, db)
+    result = await eclass_service.crawl_course(current_user["id"], course_id, is_jwt_user=True)
     
     # 새로운 공지사항 조회
-    notices = await eclass_service.get_notices(current_user["id"], course_id, db)
+    notices = await eclass_service.get_notices(current_user["id"], course_id, is_jwt_user=True)
     
     return {
         "notices": notices,

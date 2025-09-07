@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,7 @@ def get_test_data_service():
 
 @router.get("/", response_model=AssignmentList)
 async def get_assignments(
-    course_id: str,
+    course_id: str = Path(..., description="강의 ID"),
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -31,7 +31,7 @@ async def get_assignments(
             "total": len(assignments)
         }
     
-    assignments = await eclass_service.get_assignments(current_user["id"], course_id, db)
+    assignments = await eclass_service.get_assignments(current_user["id"], course_id, is_jwt_user=True)
     return {
         "assignments": assignments,
         "total": len(assignments)
@@ -39,8 +39,8 @@ async def get_assignments(
 
 @router.get("/{assignment_id}", response_model=Assignment)
 async def get_assignment(
-    course_id: str,
-    assignment_id: str,
+    course_id: str = Path(..., description="강의 ID"),
+    assignment_id: str = Path(..., description="과제 ID"),
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -60,7 +60,7 @@ async def get_assignment(
             detail="과제를 찾을 수 없습니다"
         )
     
-    assignments = await eclass_service.get_assignments(current_user["id"], course_id, db)
+    assignments = await eclass_service.get_assignments(current_user["id"], course_id, is_jwt_user=True)
     for assignment in assignments:
         if assignment["assignment_id"] == assignment_id:
             return assignment
@@ -72,7 +72,7 @@ async def get_assignment(
 
 @router.post("/refresh")
 async def refresh_assignments(
-    course_id: str,
+    course_id: str = Path(..., description="강의 ID"),
     db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     eclass_service: EclassService = Depends(get_eclass_service),
@@ -89,10 +89,10 @@ async def refresh_assignments(
             "message": "과제 새로고침이 완료되었습니다"
         }
     
-    result = await eclass_service.crawl_course(current_user["id"], course_id, db)
+    result = await eclass_service.crawl_course(current_user["id"], course_id, is_jwt_user=True)
     
     # 새로운 과제 조회
-    assignments = await eclass_service.get_assignments(current_user["id"], course_id, db)
+    assignments = await eclass_service.get_assignments(current_user["id"], course_id, is_jwt_user=True)
     
     return {
         "assignments": assignments,
