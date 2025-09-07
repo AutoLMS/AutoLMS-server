@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 class Token(BaseModel):
     access_token: str
@@ -27,20 +27,15 @@ class EClassToken(BaseModel):
 class EClassTokenRefresh(BaseModel):
     refresh_token: str
 
-class UserBase(BaseModel):
-    email: Optional[EmailStr] = None
 
-class UserCreate(UserBase):
-    email: EmailStr
-    password: str
+class UserCreate(BaseModel):
     eclass_username: str
     eclass_password: str
 
-class UserLogin(UserBase):
-    email: EmailStr
-    password: str
+class UserLogin(BaseModel):
+    eclass_username: str
+    eclass_password: str
 
-class UserOut(UserBase):
+class UserOut(BaseModel):
     id: str
-    email: EmailStr
-    eclass_username: Optional[str] = None
+    eclass_username: str

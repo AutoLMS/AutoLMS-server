@@ -63,7 +63,7 @@ class AuthSessionService(BaseService):
                     self.auth_sessions[session.token] = {
                         "id": session.id,
                         "user_id": session.user_id,
-                        "email": session.email,
+                        "eclass_username": session.eclass_username,
                         "expires_at": session.expires_at,
                         "is_active": session.is_active,
                         "created_at": session.created_at
@@ -107,7 +107,7 @@ class AuthSessionService(BaseService):
 
         logger.info("AuthSessionService 종료 완료")
 
-    async def create_session(self, user_id: str, email: str = None, expires_delta: Optional[timedelta] = None) -> Dict[
+    async def create_session(self, user_id: str, eclass_username: str = None, expires_delta: Optional[timedelta] = None) -> Dict[
         str, Any]:
         """인증 세션 생성 및 토큰 발급"""
         logger.info(f"사용자 {user_id}의 인증 세션 생성")
@@ -136,7 +136,7 @@ class AuthSessionService(BaseService):
         session_info = {
             "id": session_id,
             "user_id": user_id,
-            "email": email,
+            "eclass_username": eclass_username,
             "token": access_token,
             "expires_at": expire,
             "is_active": True,
@@ -254,7 +254,7 @@ class AuthSessionService(BaseService):
                             session_info = {
                                 "id": db_session.id,
                                 "user_id": db_session.user_id,
-                                "email": db_session.email,
+                                "eclass_username": db_session.eclass_username,
                                 "expires_at": db_session.expires_at,
                                 "is_active": db_session.is_active,
                                 "created_at": db_session.created_at
@@ -275,7 +275,7 @@ class AuthSessionService(BaseService):
             logger.info(f"토큰 검증 성공: user_id={user_id}")
             return {
                 "id": user_id,
-                "email": session_info.get("email", "unknown@example.com"),
+                "eclass_username": session_info.get("eclass_username", "unknown"),
                 "session_id": session_id
             }
 

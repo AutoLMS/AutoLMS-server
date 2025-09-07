@@ -10,11 +10,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=True)
-
-    # e-Class 관련 정보
-    eclass_username = Column(String)  # 학번
+    
+    # e-Class 관련 정보 (메인 식별자)
+    eclass_username = Column(String, unique=True, index=True, nullable=False)  # 학번
     # eclass_password는 Supabase에서 암호화하여 관리
 
     # 상태 정보
@@ -31,8 +29,6 @@ class User(Base):
         """사용자 모델을 딕셔너리로 변환"""
         return {
             'id': self.id,
-            'email': self.email,
-            'name': self.name,
             'eclass_username': self.eclass_username,
             'is_active': self.is_active,
             'is_verified': self.is_verified,

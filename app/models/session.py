@@ -10,7 +10,7 @@ class Session(Base):
 
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    email = Column(String, nullable=True)  # UserOut 모델에 필요
+    eclass_username = Column(String, nullable=True)  # 이클래스 계정 정보
     token = Column(Text, nullable=False, unique=True)
     expires_at = Column(DateTime, nullable=False)
     is_active = Column(Boolean, default=True)

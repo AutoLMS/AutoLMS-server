@@ -3,7 +3,7 @@
     "name": "AutoLMS-R Complete API Collection",
     "description": "AutoLMS-R의 모든 API 엔드포인트를 포함한 완전한 테스트 컬렉션",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "2.0.0"
+    "version": "2.2.0"
   },
   "variable": [
     {
@@ -87,14 +87,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"testpassword123\",\n  \"eclass_username\": \"testuser\",\n  \"eclass_password\": \"eclasspassword\"\n}"
+              "raw": "{\n  \"eclass_username\": \"20220001\",\n  \"eclass_password\": \"eclasspassword\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "register"]
             },
-            "description": "새 사용자 등록"
+            "description": "새 사용자 등록 - 이클래스 계정으로만 가입"
           },
           "event": [
             {
@@ -117,35 +117,19 @@
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/x-www-form-urlencoded"
+                "value": "application/json"
               }
             ],
             "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                {
-                  "key": "username",
-                  "value": "elaus00@gmail.com",
-                  "type": "text"
-                },
-                {
-                  "key": "password",
-                  "value": "rnrnrn3824+",
-                  "type": "text"
-                },
-                {
-                  "key": "grant_type",
-                  "value": "password",
-                  "type": "text"
-                }
-              ]
+              "mode": "raw",
+              "raw": "{\n  \"eclass_username\": \"20220001\",\n  \"eclass_password\": \"eclasspassword\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
             },
-            "description": "로그인하여 토큰 획득"
+            "description": "로그인하여 토큰 획득 - 이클래스 계정으로 로그인"
           },
           "event": [
             {
@@ -174,7 +158,7 @@
           ]
         },
         {
-          "name": "Get Current User Info",
+          "name": "Verify Token",
           "request": {
             "method": "GET",
             "header": [
@@ -184,11 +168,11 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/auth/me",
+              "raw": "{{baseUrl}}/auth/verify",
               "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
+              "path": ["auth", "verify"]
             },
-            "description": "현재 사용자 정보 조회"
+            "description": "토큰 검증 및 사용자 정보 조회"
           },
           "event": [
             {
@@ -202,7 +186,7 @@
                   "pm.test('Response has user info', function () {",
                   "    const jsonData = pm.response.json();",
                   "    pm.expect(jsonData).to.have.property('id');",
-                  "    pm.expect(jsonData).to.have.property('email');",
+                  "    pm.expect(jsonData).to.have.property('eclass_username');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -343,7 +327,7 @@
         {
           "name": "Refresh Courses",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
@@ -463,7 +447,7 @@
         {
           "name": "Refresh Course Notices",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
@@ -541,7 +525,7 @@
         {
           "name": "Refresh Course Materials",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
@@ -619,7 +603,7 @@
         {
           "name": "Refresh Course Assignments",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
@@ -690,7 +674,7 @@
           ]
         },
         {
-          "name": "Crawl Specific Course",
+          "name": "Sync All Courses",
           "request": {
             "method": "POST",
             "header": [
@@ -700,9 +684,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/crawl/course/{{test_course_id}}?auto_download=true",
+              "raw": "{{baseUrl}}/crawl/sync/all?auto_download=true",
               "host": ["{{baseUrl}}"],
-              "path": ["crawl", "course", "{{test_course_id}}"],
+              "path": ["crawl", "sync", "all"],
               "query": [
                 {
                   "key": "auto_download",
@@ -710,7 +694,56 @@
                 }
               ]
             },
-            "description": "특정 강의 크롤링"
+            "description": "전체 강의 동기화"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.task_id) {",
+                  "        pm.collectionVariables.set('test_task_id', responseJson.task_id);",
+                  "        console.log('Task ID 저장됨:', responseJson.task_id);",
+                  "    }",
+                  "",
+                  "    pm.test('Sync task started', function () {",
+                  "        pm.expect(responseJson).to.have.property('status');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sync Specific Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/crawl/sync/course/{{test_course_id}}?auto_download=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["crawl", "sync", "course", "{{test_course_id}}"],
+              "query": [
+                {
+                  "key": "auto_download",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "특정 강의 동기화"
           },
           "event": [
             {
@@ -839,9 +872,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/attachments/by-source/notice/12345",
+              "raw": "{{baseUrl}}/attachments/notices/12345",
               "host": ["{{baseUrl}}"],
-              "path": ["attachments", "by-source", "notice", "12345"]
+              "path": ["attachments", "notices", "12345"]
             },
             "description": "소스별 첨부파일 목록 조회"
           }
@@ -887,9 +920,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/courses/{{test_course_id}}/syllabus",
+              "raw": "{{baseUrl}}/courses/{{test_course_id}}/syllabus/",
               "host": ["{{baseUrl}}"],
-              "path": ["courses", "{{test_course_id}}", "syllabus"]
+              "path": ["courses", "{{test_course_id}}", "syllabus", ""]
             },
             "description": "강의계획서 조회"
           },
@@ -909,6 +942,24 @@
               }
             }
           ]
+        },
+        {
+          "name": "Refresh Course Syllabus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/courses/{{test_course_id}}/syllabus/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses", "{{test_course_id}}", "syllabus", "refresh"]
+            },
+            "description": "강의계획서 새로고침"
+          }
         }
       ],
       "description": "강의계획서 관련 API"

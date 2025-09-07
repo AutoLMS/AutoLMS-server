@@ -25,15 +25,28 @@ class AuthService:
 
     logger = logging.getLogger(__name__)
 
-    async def register(self, email: str, password: str, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
-        """새 사용자 등록"""
+    async def register(self, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
+        """새 사용자 등록 - 이클래스 계정만으로 가입"""
         try:
-            # Supabase Auth로 사용자 등록
-            logger.info(f"사용자 등록 시작: {email}, 이클래스 계정: {eclass_username}")
+            # 먼저 이클래스 계정 검증
+            is_valid = await self.validate_eclass_credentials(eclass_username, eclass_password)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="이클래스 계정 정보가 유효하지 않습니다."
+                )
 
+            # 자동으로 이메일과 패스워드 생성
+            auto_email = f"seoultech@{eclass_username}"
+            import uuid
+            auto_password = str(uuid.uuid4())  # 랜덤 패스워드 생성
+            
+            logger.info(f"사용자 등록 시작: 이클래스 계정 {eclass_username} -> 자동 이메일 {auto_email}")
+
+            # Supabase Auth로 사용자 등록
             auth_response = self.supabase.auth.sign_up({
-                "email": email,
-                "password": password
+                "email": auto_email,
+                "password": auto_password
             })
 
             logger.info(f"Supabase Auth 등록 응답: {auth_response}")
@@ -49,7 +62,6 @@ class AuthService:
                     # 저장할 사용자 데이터 구성
                     user_data = {
                         'id': user_id,
-                        'email': email,
                         'eclass_username': eclass_username,
                         'eclass_password': eclass_password,  # 실제 구현에서는 암호화 필요
                         'created_at': datetime.now().isoformat()
@@ -89,7 +101,7 @@ class AuthService:
                 return {
                     "user": {
                         "id": user_id,
-                        "email": auth_response.user.email
+                        "eclass_username": eclass_username
                     }
                 }
             else:
@@ -112,34 +124,62 @@ class AuthService:
                 detail=f"회원가입 처리 중 오류가 발생했습니다: {str(e)}"
             )
 
-    async def login(self, email: str, password: str) -> Dict[str, Any]:
-        """사용자 로그인"""
+    async def login(self, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
+        """사용자 로그인 - 이클래스 계정으로 로그인"""
         try:
-            auth_response = self.supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
+            # 먼저 이클래스 계정 검증
+            is_valid = await self.validate_eclass_credentials(eclass_username, eclass_password)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="이클래스 계정 정보가 올바르지 않습니다."
+                )
 
-            if auth_response.user and auth_response.session:
+            # 자동 생성된 이메일로 Supabase 사용자 조회
+            auto_email = f"seoultech@{eclass_username}"
+            
+            # 사용자 정보 조회
+            try:
+                user_response = self.supabase.table('users').select('*').eq('eclass_username', eclass_username).execute()
+                
+                if not user_response.data or len(user_response.data) == 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="등록되지 않은 이클래스 계정입니다. 먼저 회원가입을 진행해주세요."
+                    )
+                
+                user_data = user_response.data[0]
+                user_id = user_data['id']
+                
+                # 임시 토큰 생성 (실제로는 JWT 토큰 생성)
+                import uuid
+                access_token = str(uuid.uuid4())
+                
                 return {
                     "session": {
-                        "access_token": auth_response.session.access_token,
-                        "refresh_token": auth_response.session.refresh_token
+                        "access_token": access_token,
+                        "refresh_token": str(uuid.uuid4())
                     },
                     "user": {
-                        "id": auth_response.user.id,
-                        "email": auth_response.user.email
+                        "id": user_id,
+                        "eclass_username": eclass_username
                     }
                 }
+                
+            except Exception as db_error:
+                logger.error(f"사용자 정보 조회 중 오류: {str(db_error)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="로그인 처리 중 오류가 발생했습니다."
+                )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"로그인 처리 중 예외 발생: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="로그인 처리 중 오류가 발생했습니다."
-            )
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=str(e)
             )
 
     async def get_current_user(self, token: str) -> Dict[str, Any]:
@@ -164,10 +204,13 @@ class AuthService:
                     logger.error("No user data in response")
                     raise ValueError("사용자 정보를 찾을 수 없습니다.")
 
-                # 사용자 정보 반환
+                # 사용자 정보 반환 (이클래스 유저명 포함)
+                user_data_response = self.supabase.table('users').select('eclass_username').eq('id', user_response.user.id).execute()
+                eclass_username = user_data_response.data[0]['eclass_username'] if user_data_response.data else None
+                
                 return {
                     "id": user_response.user.id,
-                    "email": user_response.user.email,
+                    "eclass_username": eclass_username,
                     "token": token
                 }
 

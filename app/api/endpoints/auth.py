@@ -1,10 +1,10 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer
 from typing import Any
 
-from app.schemas.auth import UserCreate, Token, UserOut
+from app.schemas.auth import UserCreate, UserLogin, Token, UserOut
 from app.services.auth_service import AuthService
 from app.services.session.auth_session_service import AuthSessionService
 from app.services.session.eclass_session_manager import EclassSessionManager
@@ -22,19 +22,9 @@ async def register(
         user_in: UserCreate,
         auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:
-    """새 사용자 등록"""
-    # 이클래스 계정 검증
-    is_valid = await auth_service.validate_eclass_credentials(user_in.eclass_username, user_in.eclass_password)
-    if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이클래스 계정 정보가 유효하지 않습니다."
-        )
-
-    # 사용자 등록
+    """새 사용자 등록 - 이클래스 계정만으로 가입"""
+    # 사용자 등록 (이클래스 계정 검증은 AuthService에서 처리)
     result = await auth_service.register(
-        email=user_in.email,
-        password=user_in.password,
         eclass_username=user_in.eclass_username,
         eclass_password=user_in.eclass_password
     )
@@ -50,23 +40,26 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
-        form_data: OAuth2PasswordRequestForm = Depends(),
+        user_login: UserLogin,
         auth_service: AuthService = Depends(get_auth_service),
         auth_session_service: AuthSessionService = Depends(get_auth_session_service)
 ) -> Any:
-    """로그인 및 토큰 발급"""
-    result = await auth_service.login(email=form_data.username, password=form_data.password)
+    """로그인 및 토큰 발급 - 이클래스 계정으로 로그인"""
+    result = await auth_service.login(
+        eclass_username=user_login.eclass_username,
+        eclass_password=user_login.eclass_password
+    )
     if not result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
+            detail="이클래스 계정 정보가 올바르지 않습니다.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     # 내부 세션 생성
     user_id = result.get("user", {}).get("id")
-    user_email = result.get("user", {}).get("email")
-    session_result = await auth_session_service.create_session(user_id, user_email)
+    user_eclass = result.get("user", {}).get("eclass_username")
+    session_result = await auth_session_service.create_session(user_id, user_eclass)
 
     return {
         "access_token": session_result["access_token"],
