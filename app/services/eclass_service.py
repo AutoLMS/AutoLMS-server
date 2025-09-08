@@ -700,7 +700,7 @@ class EclassService:
             attachment_repo = SupabaseAttachmentRepository()
 
             existing_assignments = await assignment_repo.get_by_course_id(course_id)
-            existing_assignment_ids = {assignment.assignment_id for assignment in existing_assignments}
+            existing_assignment_ids = {assignment.get('assignment_id') for assignment in existing_assignments if assignment.get('assignment_id')}
 
             # 새 과제 처리
             for assignment in assignments:
@@ -747,7 +747,7 @@ class EclassService:
                                         "file_name": attachment["file_name"],
                                         "original_url": attachment["original_url"],
                                         "storage_path": attachment.get("storage_path", ""),
-                                        "source_id": str(created_assignment.id),
+                                        "source_id": str(created_assignment.get('id', 'unknown')),
                                         "source_type": "assignments",
                                         "course_id": course_id,
                                         "user_id": user_id,
@@ -761,7 +761,7 @@ class EclassService:
                                         "file_name": attachment.get("name", "Unknown"),
                                         "original_url": attachment.get("url", ""),
                                         "storage_path": "",
-                                        "source_id": str(created_assignment.id),
+                                        "source_id": str(created_assignment.get('id', 'unknown')),
                                         "source_type": "assignments",
                                         "course_id": course_id,
                                         "user_id": user_id,
@@ -863,7 +863,8 @@ class EclassService:
         # 공지사항 정보와 첨부파일 정보 조합
         result = []
         for notice in notices:
-            notice_dict = notice.to_dict()
+            # notice가 이미 dict 타입이므로 to_dict() 호출 불필요
+            notice_dict = notice if isinstance(notice, dict) else notice.to_dict()
 
             # 첨부파일 조회
             attachments = await attachment_repo.get_by_source(str(notice['id']), "notices")
@@ -897,7 +898,8 @@ class EclassService:
         # 강의자료 정보와 첨부파일 정보 조합
         result = []
         for material in materials:
-            material_dict = material.to_dict()
+            # material이 이미 dict 타입이므로 to_dict() 호출 불필요
+            material_dict = material if isinstance(material, dict) else material.to_dict()
 
             # 첨부파일 조회
             attachments = await attachment_repo.get_by_source(str(material['id']), "lecture_materials")
@@ -931,7 +933,8 @@ class EclassService:
         # 과제 정보와 첨부파일 정보 조합
         result = []
         for assignment in assignments:
-            assignment_dict = assignment.to_dict()
+            # assignment가 이미 dict 타입이므로 to_dict() 호출 불필요
+            assignment_dict = assignment if isinstance(assignment, dict) else assignment.to_dict()
 
             # 첨부파일 조회
             attachments = await attachment_repo.get_by_source(str(assignment['id']), "assignments")
@@ -1184,11 +1187,10 @@ class EclassService:
             syllabus_repo = SupabaseSyllabusRepository()
             existing_syllabus = await syllabus_repo.get_by_course_and_user(course_id, user_id)
             
-            # 강의계획서 데이터 준비
+            # 강의계획서 데이터 준비 (syllabus_id 필드 제거)
             syllabus_save_data = {
                 'user_id': user_id,
                 'course_id': course_id,
-                'syllabus_id' : syllabus_data.get('syllabus_id', ''),
                 'basic_info': syllabus_data.get('수업기본정보', {}),
                 'instructor_info': syllabus_data.get('담당교수정보', {}),
                 'course_plan': syllabus_data.get('강의계획', {}),

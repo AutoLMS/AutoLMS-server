@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from supabase import Client, create_client
 from app.core.supabase_client import get_supabase_client
 from app.core.config import settings
@@ -16,6 +16,22 @@ class SupabaseMaterialRepository:
             self.supabase: Client = get_supabase_client()
             print("🐛 DEBUG: Material Repository - 일반 클라이언트 사용")
         self.table_name = "materials"
+    
+    async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """새로운 강의자료 생성"""
+        try:
+            # article_id를 material_id로 매핑
+            if "article_id" in kwargs and "material_id" not in kwargs:
+                kwargs["material_id"] = kwargs["article_id"]
+            
+            result = self.supabase.table(self.table_name)\
+                .insert(kwargs)\
+                .execute()
+            
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"강의자료 생성 오류: {e}")
+            return None
     
     async def get_by_course_id(self, course_id: str) -> List[Dict[str, Any]]:
         """강의 ID로 강의자료 조회"""

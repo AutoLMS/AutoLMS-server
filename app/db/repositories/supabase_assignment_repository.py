@@ -45,3 +45,19 @@ class SupabaseAssignmentRepository:
         except Exception as e:
             print(f"과제 조회 오류: {e}")
             return []
+    
+    async def create(self, **kwargs) -> Dict[str, Any]:
+        """새로운 과제 생성"""
+        try:
+            # article_id를 assignment_id로 매핑
+            if "article_id" in kwargs and "assignment_id" not in kwargs:
+                kwargs["assignment_id"] = kwargs["article_id"]
+            
+            result = self.supabase.table(self.table_name)\
+                .insert(kwargs)\
+                .execute()
+            
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"과제 생성 오류: {e}")
+            return None

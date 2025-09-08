@@ -30,3 +30,15 @@ class SupabaseAttachmentRepository:
         except Exception as e:
             print(f"첨부파일 조회 오류: {e}")
             return []
+    
+    async def create(self, **kwargs) -> Dict[str, Any]:
+        """새로운 첨부파일 생성"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .insert(kwargs)\
+                .execute()
+            
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"첨부파일 생성 오류: {e}")
+            return None
