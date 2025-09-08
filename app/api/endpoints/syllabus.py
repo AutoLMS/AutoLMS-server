@@ -38,6 +38,29 @@ async def get_syllabus(
             "message": "강의계획서 정보 (테스트 데이터)"
         }
     
+    # 프로덕션 환경에서는 eClass 로그인 확인
+    if not await eclass_service.is_logged_in():
+        try:
+            # AuthService를 통해 eClass 로그인 정보 가져오기
+            from app.services.auth_service import AuthService
+            auth_service = AuthService()
+            eclass_credentials = await auth_service.get_user_eclass_credentials(current_user["id"])
+            
+            login_success = await eclass_service.login(
+                eclass_credentials["eclass_username"], 
+                eclass_credentials["eclass_password"]
+            )
+            if not login_success:
+                raise HTTPException(
+                    status_code=401,
+                    detail="e-Class 로그인에 실패했습니다."
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=401,
+                detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
+            )
+    
     try:
         syllabus = await eclass_service.get_syllabus(current_user["id"], course_id)
         return syllabus

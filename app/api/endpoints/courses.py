@@ -42,23 +42,45 @@ async def get_courses(
         # AuthService를 통해 eClass 로그인 정보 가져오기
         from app.services.auth_service import AuthService
         auth_service = AuthService()
-        eclass_credentials = await auth_service.get_user_eclass_credentials(current_user["id"])
         
-        login_success = await eclass_service.login(
-            eclass_credentials["eclass_username"], 
-            eclass_credentials["eclass_password"]
-        )
+        try:
+            eclass_credentials = await auth_service.get_user_eclass_credentials(current_user["id"])
+            print(f"🐛 DEBUG: eClass 자격증명 조회 성공 - 사용자명: {eclass_credentials['eclass_username']}")
+        except Exception as cred_error:
+            print(f"🐛 DEBUG: 자격증명 조회 실패: {cred_error}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"사용자 자격증명 조회 실패: {str(cred_error)}"
+            )
+        
+        try:
+            login_success = await eclass_service.login(
+                eclass_credentials["eclass_username"], 
+                eclass_credentials["eclass_password"]
+            )
+            print(f"🐛 DEBUG: eClass 로그인 시도 결과: {login_success}")
+        except Exception as login_error:
+            print(f"🐛 DEBUG: eClass 로그인 시도 중 오류: {login_error}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"eClass 로그인 시도 중 오류: {str(login_error)}"
+            )
         
         if not login_success:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="e-Class 로그인에 실패했습니다."
             )
+    except HTTPException:
+        # HTTPException은 그대로 재발생
+        raise
     except Exception as e:
-        print(f"🐛 DEBUG: eClass 로그인 에러: {e}")
+        print(f"🐛 DEBUG: 예상치 못한 오류: {e}")
+        import traceback
+        print(f"🐛 DEBUG: 트레이스백: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"e-Class 로그인 중 오류가 발생했습니다: {str(e)}"
+            detail=f"예상치 못한 오류 발생: {str(e)}"
         )
     
     courses = await eclass_service.get_courses(current_user["id"], force_refresh=True, is_jwt_user=True)

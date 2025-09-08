@@ -370,9 +370,9 @@ class EclassService:
                 logger.info(f"강의 {course_id}의 공지사항이 없습니다.")
                 return result
 
-            # 4. 기존 공지사항 조회
-            notice_repo = SupabaseNoticeRepository()
-            attachment_repo = SupabaseAttachmentRepository()
+            # 4. 기존 공지사항 조회 (Service Key 사용)
+            notice_repo = SupabaseNoticeRepository(use_service_key=True)
+            attachment_repo = SupabaseAttachmentRepository(use_service_key=True)
             existing_notices = await notice_repo.get_by_course_id(course_id)
             existing_article_ids = {notice['article_id'] for notice in existing_notices}
 
@@ -488,9 +488,9 @@ class EclassService:
                 logger.warning(f"강의 {course_id}의 강의자료가 없습니다.")
                 return result
 
-            # 기존 강의자료 조회
-            material_repo = SupabaseMaterialRepository()
-            attachment_repo = SupabaseAttachmentRepository()
+            # 기존 강의자료 조회 (Service Key 사용)
+            material_repo = SupabaseMaterialRepository(use_service_key=True)
+            attachment_repo = SupabaseAttachmentRepository(use_service_key=True)
 
             existing_materials = await material_repo.get_by_course_id(course_id)
             existing_article_ids = {material.get('article_id') for material in existing_materials}
@@ -695,9 +695,9 @@ class EclassService:
                 logger.info(f"강의 {course_id}의 과제가 없습니다.")
                 return result
 
-            # 기존 과제 조회
-            assignment_repo = SupabaseAssignmentRepository()
-            attachment_repo = SupabaseAttachmentRepository()
+            # 기존 과제 조회 (Service Key 사용)
+            assignment_repo = SupabaseAssignmentRepository(use_service_key=True)
+            attachment_repo = SupabaseAttachmentRepository(use_service_key=True)
 
             existing_assignments = await assignment_repo.get_by_course_id(course_id)
             existing_assignment_ids = {assignment.get('assignment_id') for assignment in existing_assignments if assignment.get('assignment_id')}
@@ -1183,8 +1183,8 @@ class EclassService:
             
             result["count"] = 1
             
-            # 기존 강의계획서 조회
-            syllabus_repo = SupabaseSyllabusRepository()
+            # 기존 강의계획서 조회 (Service Key 사용)
+            syllabus_repo = SupabaseSyllabusRepository(use_service_key=True)
             existing_syllabus = await syllabus_repo.get_by_course_and_user(course_id, user_id)
             
             # 강의계획서 데이터 준비 (syllabus_id 필드 제거)

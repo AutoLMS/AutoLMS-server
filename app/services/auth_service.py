@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from fastapi import HTTPException, status
 from typing import Dict, Any
 from supabase.lib.client_options import ClientOptions
@@ -9,12 +10,23 @@ from app.core.supabase_client import get_supabase_client
 from app.services.eclass_service import EclassService
 from app.services.encryption_service import get_encryption_service
 
+logger = logging.getLogger(__name__)
+
 
 class AuthService:
     """Supabase Auth + eClass 통합 인증 서비스"""
 
     def __init__(self, supabase_client=None):
         self.supabase = supabase_client or get_supabase_client()
+        self.encryption_service = get_encryption_service()
+    
+    def _encrypt_password(self, password: str) -> str:
+        """비밀번호 암호화"""
+        return self.encryption_service.encrypt_password(password)
+    
+    def _decrypt_password(self, encrypted_password: str) -> str:
+        """비밀번호 복호화"""
+        return self.encryption_service.decrypt_password(encrypted_password)
 
     async def eclass_register(self, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
         """eClass 계정으로 회원가입 (Supabase Auth + user_metadata 활용)"""
@@ -266,11 +278,23 @@ class AuthService:
                 eclass_username = user_metadata.get("eclass_username")
                 eclass_password = user_metadata.get("eclass_password")
                 
+                logger.info(f"사용자 메타데이터 조회: username={bool(eclass_username)}, password={bool(eclass_password)}")
+                
                 if eclass_username and eclass_password:
-                    return {
-                        "eclass_username": eclass_username,
-                        "eclass_password": eclass_password
-                    }
+                    try:
+                        # 암호화된 비밀번호 복호화
+                        decrypted_password = self._decrypt_password(eclass_password)
+                        logger.info(f"비밀번호 복호화 성공: {eclass_username}")
+                        return {
+                            "eclass_username": eclass_username,
+                            "eclass_password": decrypted_password
+                        }
+                    except Exception as decrypt_error:
+                        logger.error(f"비밀번호 복호화 실패: {decrypt_error}")
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail=f"비밀번호 복호화 중 오류 발생: {str(decrypt_error)}"
+                        )
             
             # 데이터를 찾을 수 없으면 오류 발생
             raise HTTPException(
