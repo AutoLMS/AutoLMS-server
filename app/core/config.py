@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # 세션 설정
     SESSION_EXPIRE_MINUTES: int = 60
 
+    # 암호화 설정
+    ECLASS_ENCRYPTION_KEY: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', case_sensitive=True)
 
     def get_cors_origins(self) -> List[str]:

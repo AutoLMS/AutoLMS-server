@@ -6,6 +6,7 @@ from postgrest.exceptions import APIError
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
 from app.services.eclass_service import EclassService
+from app.services.encryption_service import get_encryption_service
 
 
 class AuthService:
@@ -58,13 +59,16 @@ class AuthService:
                     detail="회원가입 처리 중 오류가 발생했습니다."
                 )
 
-            # 5. user_profiles에 eClass 정보 저장
+            # 5. user_profiles에 eClass 정보 저장 (비밀번호 암호화)
             try:
+                encryption_service = get_encryption_service()
+                encrypted_password = encryption_service.encrypt_password(eclass_password)
+                
                 profile_data = {
                     "user_id": auth_response.user.id,
                     "autolms_id": autolms_id,
                     "eclass_username": eclass_username,
-                    "eclass_password": eclass_password,
+                    "eclass_password": encrypted_password,  # 암호화된 비밀번호 저장
                     "eclass_session_token": await eclass_service.get_session_token() or ""
                 }
                 
@@ -97,30 +101,94 @@ class AuthService:
             )
     
     async def eclass_login(self, eclass_username: str, eclass_password: str) -> Dict[str, Any]:
-        """eClass 계정으로 로그인 (Supabase Auth 활용)"""
+        """eClass 계정으로 로그인 (비밀번호 변경 자동 감지 지원)"""
         try:
-            # 1. eClass 로그인 먼저 검증
+            # 1. 기존 사용자 확인
+            from supabase import create_client
+            service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            autolms_id = f"seoultech_{eclass_username}"
+            
+            existing_profile = service_client.table('user_profiles')\
+                .select('*')\
+                .eq('autolms_id', autolms_id)\
+                .execute()
+            
+            if not existing_profile.data:
+                # 미등록 사용자 - eClass 검증 후 회원가입
+                eclass_service = EclassService()
+                eclass_login_success = await eclass_service.login(eclass_username, eclass_password)
+                
+                if not eclass_login_success:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="eClass 로그인 정보가 올바르지 않습니다."
+                    )
+                
+                return await self.eclass_register(eclass_username, eclass_password)
+            
+            # 2. 기존 사용자 - 저장된 비밀번호와 비교
+            profile_data = existing_profile.data[0]
+            stored_password = profile_data.get('eclass_password', '')
+            
+            # 암호화된 비밀번호 복호화
+            encryption_service = get_encryption_service()
+            if encryption_service.is_encrypted(stored_password):
+                decrypted_password = encryption_service.decrypt_password(stored_password)
+            else:
+                # 평문 비밀번호 (기존 데이터 호환성)
+                decrypted_password = stored_password
+            
+            # 3. 비밀번호 일치 여부 확인
+            if decrypted_password == eclass_password:
+                # 비밀번호 일치 - 일반 로그인 진행
+                return await self._perform_login(profile_data, eclass_username, eclass_password)
+            
+            # 4. 비밀번호 불일치 - eClass에서 재검증 (비밀번호 변경 가능성)
+            print(f"🔄 비밀번호 불일치 감지, eClass 재검증 중: {eclass_username}")
             eclass_service = EclassService()
             eclass_login_success = await eclass_service.login(eclass_username, eclass_password)
             
             if not eclass_login_success:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="eClass 로그인 정보가 올바르지 않습니다."
+                    detail="eClass 로그인 정보가 올바르지 않습니다. 비밀번호를 확인해주세요."
                 )
             
-            # 2. 가상 이메일로 Supabase Auth 로그인 시도
+            # 5. eClass 검증 성공 - 비밀번호 변경 감지, DB 업데이트
+            print(f"✅ eClass 비밀번호 변경 감지, DB 업데이트 중: {eclass_username}")
+            new_encrypted_password = encryption_service.encrypt_password(eclass_password)
+            
+            service_client.table('user_profiles')\
+                .update({'eclass_password': new_encrypted_password})\
+                .eq('user_id', profile_data['user_id'])\
+                .execute()
+            
+            # 평문 비밀번호를 암호화로 마이그레이션한 경우 로그 출력
+            if not encryption_service.is_encrypted(stored_password):
+                print(f"🔐 기존 평문 비밀번호를 암호화로 마이그레이션: {eclass_username}")
+            
+            # 6. 업데이트된 정보로 로그인 진행
+            profile_data['eclass_password'] = new_encrypted_password  # 업데이트된 정보 반영
+            return await self._perform_login(profile_data, eclass_username, eclass_password)
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"로그인 처리 중 오류가 발생했습니다: {str(e)}"
+            )
+
+    async def _perform_login(self, profile_data: Dict[str, Any], eclass_username: str, eclass_password: str) -> Dict[str, Any]:
+        """실제 Supabase Auth 로그인 수행"""
+        try:
+            # Supabase Auth 로그인 시도
             virtual_email = f"seoultech_{eclass_username}@autolms.internal"
             
-            try:
-                auth_response = self.supabase.auth.sign_in_with_password({
-                    "email": virtual_email,
-                    "password": eclass_password
-                })
-            except Exception as e:
-                # Supabase Auth 계정이 없으면 자동으로 생성
-                print(f"Supabase Auth 로그인 실패, 계정 자동 생성: {e}")
-                return await self.eclass_register(eclass_username, eclass_password)
+            auth_response = self.supabase.auth.sign_in_with_password({
+                "email": virtual_email,
+                "password": eclass_password
+            })
 
             if not auth_response.user or not auth_response.session:
                 raise HTTPException(
@@ -128,47 +196,7 @@ class AuthService:
                     detail="로그인 정보가 올바르지 않습니다."
                 )
 
-            # 2. user_profiles에서 추가 정보 조회 및 생성
-            try:
-                profile_response = self.supabase.table('user_profiles')\
-                    .select('*')\
-                    .eq('user_id', auth_response.user.id)\
-                    .execute()
-                
-                if profile_response.data and len(profile_response.data) > 0:
-                    profile_data = profile_response.data[0]
-                else:
-                    # user_profiles에 데이터가 없으면 생성
-                    print(f"user_profiles 데이터가 없습니다. 자동 생성 중...")
-                    autolms_id = f"seoultech_{eclass_username}"
-                    
-                    # Service key 클라이언트로 생성 (RLS 우회)
-                    from supabase import create_client
-                    service_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
-                    
-                    new_profile = {
-                        "user_id": auth_response.user.id,
-                        "autolms_id": autolms_id,
-                        "eclass_username": eclass_username,
-                        "eclass_session_token": ""
-                    }
-                    
-                    service_client.table('user_profiles').insert(new_profile).execute()
-                    profile_data = new_profile
-                    print(f"✅ user_profiles 자동 생성 완료: {autolms_id}")
-                
-            except Exception as e:
-                print(f"Warning: Could not fetch/create user profile: {e}")
-                profile_data = {"autolms_id": f"seoultech_{eclass_username}", "eclass_username": eclass_username}
-
-            # 3. eClass 세션 토큰 업데이트 (optional)
-            try:
-                # eClass 세션 토큰은 나중에 필요할 때 업데이트하도록 함
-                pass
-            except Exception as e:
-                print(f"Warning: Could not update eClass session: {e}")
-
-            # 4. 응답 생성
+            # 응답 생성 (이미 profile_data는 파라미터로 받음)
             return {
                 "access_token": auth_response.session.access_token,
                 "token_type": "bearer",
@@ -185,7 +213,7 @@ class AuthService:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"로그인 처리 중 오류가 발생했습니다: {str(e)}"
+                detail=f"Supabase 로그인 처리 중 오류가 발생했습니다: {str(e)}"
             )
 
     async def get_current_user(self, token: str) -> Dict[str, Any]:
