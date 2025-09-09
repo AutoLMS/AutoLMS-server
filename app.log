@@ -14424,3 +14424,86 @@ WHERE materials.id = $1::INTEGER
 2025-03-23 12:45:24,689 - app.services.session.auth_session_service - INFO - 사용자 ca3f1f66-5610-4659-8c86-0b134f784a86의 인증 세션 생성
 2025-03-23 12:45:31,947 - app.services.session.eclass_session_manager - INFO - EclassSessionManager 초기화 완료
 2025-03-23 12:45:31,948 - app.services.session.auth_session_service - ERROR - 토큰 검증 중 오류: 'Settings' object has no attribute 'ALGORITHM'
+2025-09-07 18:53:02,154 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/lo/login.acl "HTTP/1.1 200 OK"
+2025-09-07 18:53:02,155 - app.services.session.eclass_session - INFO - 세션 종료
+2025-09-07 18:53:19,314 - httpx - INFO - HTTP Request: POST https://eclass.seoultech.ac.kr/ilos/lo/login.acl "HTTP/1.1 200 OK"
+2025-09-07 18:53:19,325 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 302 Moved Temporarily"
+2025-09-07 18:53:19,355 - httpx - INFO - HTTP Request: GET http://eclass.seoultech.ac.kr/ilos/secondauth/login_user_auth_form.acl "HTTP/1.1 307 Temporary Redirect"
+2025-09-07 18:53:19,365 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/secondauth/login_user_auth_form.acl "HTTP/1.1 302 Moved Temporarily"
+2025-09-07 18:53:19,381 - httpx - INFO - HTTP Request: GET http://eclass.seoultech.ac.kr/ilos/m/main/main_form.acl "HTTP/1.1 307 Temporary Redirect"
+2025-09-07 18:53:19,400 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/m/main/main_form.acl "HTTP/1.1 302 Moved Temporarily"
+2025-09-07 18:53:19,415 - httpx - INFO - HTTP Request: GET http://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 307 Temporary Redirect"
+2025-09-07 18:53:19,436 - httpx - INFO - HTTP Request: GET https://eclass.seoultech.ac.kr/ilos/main/main_form.acl "HTTP/1.1 200 OK"
+2025-09-07 18:53:19,457 - app.services.session.eclass_session - INFO - 세션 종료
+2025-09-07 18:53:19,458 - app.services.auth_service - INFO - 사용자 등록 시작: test@example.com, 이클래스 계정: 19102100
+2025-09-07 18:53:19,534 - app.services.auth_service - ERROR - 사용자 등록 중 예외 발생: [Errno 8] nodename nor servname provided, or not known
+2025-09-07 18:53:19,534 - app.services.auth_service - ERROR - 상세 예외 정보: Traceback (most recent call last):
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_exceptions.py", line 10, in map_exceptions
+    yield
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_backends/sync.py", line 100, in connect_tcp
+    sock = socket.create_connection(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 822, in create_connection
+    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 953, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_transports/default.py", line 60, in map_httpcore_exceptions
+    yield
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_transports/default.py", line 218, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_sync/connection_pool.py", line 262, in handle_request
+    raise exc
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_sync/connection_pool.py", line 245, in handle_request
+    response = connection.handle_request(request)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_sync/connection.py", line 92, in handle_request
+    raise exc
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_sync/connection.py", line 69, in handle_request
+    stream = self._connect(request)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_sync/connection.py", line 117, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_backends/sync.py", line 107, in connect_tcp
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py", line 135, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/gotrue/_sync/gotrue_base_api.py", line 106, in _request
+    response = self._http_client.request(
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_client.py", line 814, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_client.py", line 901, in send
+    response = self._send_handling_auth(
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_client.py", line 929, in _send_handling_auth
+    response = self._send_handling_redirects(
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_client.py", line 966, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_client.py", line 1002, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_transports/default.py", line 218, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/contextlib.py", line 135, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/httpx/_transports/default.py", line 77, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/elaus/PycharmProjects/AutoLMS/app/services/auth_service.py", line 34, in register
+    auth_response = self.supabase.auth.sign_up({
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/gotrue/_sync/gotrue_client.py", line 160, in sign_up
+    response = self._request(
+  File "/Users/elaus/PycharmProjects/AutoLMS/.venv/lib/python3.9/site-packages/gotrue/_sync/gotrue_base_api.py", line 118, in _request
+    raise handle_exception(e)
+gotrue.errors.AuthRetryableError: [Errno 8] nodename nor servname provided, or not known
+
