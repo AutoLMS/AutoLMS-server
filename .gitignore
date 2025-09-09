@@ -44,3 +44,6 @@ logs/
 
 # Log
 app.log
+
+# HTML dumps
+html_dumps/
