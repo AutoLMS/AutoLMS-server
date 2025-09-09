@@ -8,21 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - Auth System Refactor
 
 ### Added
-- AES 암호화 기반 이클래스 비밀번호 보안 시스템
-- Supabase JWT 통합 인증 시스템
-- 강의자료 공유를 위한 권한 기반 접근 제어 시스템
-- Changelog 기반 문서화 시스템
+- AES-256 암호화 기반 이클래스 비밀번호 보안 시스템
+- Supabase JWT 통합 인증 시스템 (표준 JWT 토큰 사용)
+- 강의자료 공유를 위한 Supabase RLS 권한 기반 접근 제어
+- Changelog 기반 체계적 문서화 시스템
+- 토큰 갱신(refresh) 기능 지원
+- 사용자 플로우 다이어그램 및 API 문서
 
 ### Changed
 - PostgreSQL User 모델 → Supabase 완전 통합
-- UUID 임시 토큰 → Supabase JWT 표준 토큰
+- UUID 임시 토큰 → Supabase JWT 표준 토큰  
+- 랜덤 Supabase 비밀번호 → eclass_username 기반 비밀번호
+- 복잡한 PostgreSQL 세션 관리 → 경량화된 JWT 검증
 - 회원가입/로그인 플로우 → 이클래스 계정 연동 방식
 - 사용자 경험: AutoLMS 로그인 → 이클래스 접속 인식
 
 ### Removed
-- PostgreSQL User 모델 및 관련 리포지토리
-- 기존 UUID 기반 세션 관리 코드
-- 복잡한 이중 저장소 구조
+- PostgreSQL User 모델 및 관련 리포지토리 (app/models/user.py, app/db/repositories/user_repository.py)
+- 기존 UUID 기반 세션 관리 코드 (복잡한 PostgreSQL 세션 저장소)
+- 복잡한 이중 저장소 구조 (PostgreSQL + Supabase 중복)
+- 메모리 기반 세션 캐시 (JWT의 stateless 특성으로 불필요)
 
 ### Security
 - 이클래스 비밀번호 AES 암호화 저장 (평문 저장 해결)
