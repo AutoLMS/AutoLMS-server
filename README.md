@@ -1,6 +1,6 @@
-# AutoLMS-refactor
+# AutoLMS
 
-서울과학기술대학교 e-Class 학습관리시스템의 공지사항, 강의자료, 과제 등을 자동으로 수집하고 관리하는 API 서버입니다. 이 프로젝트는 기존 AutoLMS의 리팩토링 버전입니다.
+서울과학기술대학교 e-Class 학습관리시스템의 공지사항, 강의자료, 과제 등을 자동으로 수집하고 관리하는 API 서버입니다.
 
 ## 주요 기능
 
@@ -24,8 +24,8 @@
 
 1. 저장소 클론
 ```bash
-git clone https://github.com/yourusername/AutoLMS-refactor.git
-cd AutoLMS-refactor
+git clone https://github.com/yourusername/AutoLMS.git
+cd AutoLMS
 ```
 
 2. 가상환경 생성 및 활성화
@@ -130,7 +130,7 @@ python main.py
 ## 프로젝트 구조
 
 ```
-AutoLMS-R/
+AutoLMS/
 ├── app/                 # 메인 애플리케이션
 │   ├── api/            # API 엔드포인트
 │   ├── core/           # 핵심 설정

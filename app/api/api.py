@@ -11,7 +11,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "service": "AutoLMS-R API",
+        "service": "AutoLMS API",
         "version": "1.0.0"
     }
 
