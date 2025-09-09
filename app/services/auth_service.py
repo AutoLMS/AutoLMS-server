@@ -3,7 +3,6 @@ import logging
 from fastapi import HTTPException, status
 from typing import Dict, Any, Optional
 from sqlalchemy import select
-from app.models.user import User
 from supabase.lib.client_options import ClientOptions
 from postgrest.exceptions import APIError
 import traceback
@@ -283,28 +282,25 @@ class AuthService:
 
 
     async def get_user_eclass_credentials(self, user_id: str) -> Optional[Dict[str, str]]:
-        """사용자의 이클래스 계정 정보 조회"""
+        """사용자의 이클래스 계정 정보 조회 (Supabase에서)"""
         try:
-            from app.db.base import AsyncSessionLocal
+            # Supabase users 테이블에서 사용자 조회
+            user_response = self.supabase.table('users').select('eclass_username, eclass_password').eq('id', user_id).execute()
+            
+            if not user_response.data or len(user_response.data) == 0:
+                logger.error(f"사용자 {user_id}를 찾을 수 없음")
+                return None
 
-            async with AsyncSessionLocal() as db:
-                # ORM 방식으로 사용자 조회
-                query = select(User).where(User.id == user_id)
-                result = await db.execute(query)
-                user = result.scalar_one_or_none()
+            user_data = user_response.data[0]
+            
+            if not user_data.get('eclass_username') or not user_data.get('eclass_password'):
+                logger.error(f"사용자 {user_id}의 이클래스 계정 정보가 없음")
+                return None
 
-                if not user:
-                    logger.error(f"사용자 {user_id}를 찾을 수 없음")
-                    return None
-
-                if not user.eclass_username or not user.eclass_password:
-                    logger.error(f"사용자 {user_id}의 이클래스 계정 정보가 없음")
-                    return None
-
-                return {
-                    "username": user.eclass_username,
-                    "password": user.eclass_password
-                }
+            return {
+                "username": user_data['eclass_username'],
+                "password": user_data['eclass_password']  # 추후 암호화된 상태로 저장될 예정
+            }
         except Exception as e:
             logger.error(f"이클래스 계정 정보 조회 중 오류: {str(e)}")
             return None

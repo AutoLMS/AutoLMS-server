@@ -10,7 +10,6 @@ from app.services.parsers.course_parser import CourseParser
 from app.db.repositories.course_repository import CourseRepository
 from app.models.course import Course
 from app.models.user_courses import user_courses
-from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
