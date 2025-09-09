@@ -13,12 +13,13 @@
 
 ## 기술 스택
 
-- **백엔드**: FastAPI, Python 3.9+
-- **데이터베이스**: PostgreSQL (SQLAlchemy ORM)
+- **백엔드**: FastAPI 0.115.0, Python 3.12+
+- **데이터베이스**: PostgreSQL (SQLAlchemy 2.0 ORM, AsyncPG)
 - **파일 스토리지**: Supabase Storage
-- **인증**: Supabase Auth
-- **비동기 처리**: asyncio, httpx
-- **HTML 파싱**: BeautifulSoup4
+- **인증**: Supabase Auth, JWT (python-jose)
+- **비동기 처리**: asyncio, httpx 0.27.2
+- **HTML 파싱**: BeautifulSoup4 4.12.3
+- **데이터베이스 마이그레이션**: Alembic 1.14.0
 
 ## 설치 방법
 
@@ -28,16 +29,26 @@ git clone https://github.com/yourusername/AutoLMS.git
 cd AutoLMS
 ```
 
-2. 가상환경 생성 및 활성화
+2. 가상환경 생성 및 활성화 (Python 3.12 권장)
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 ```
 
 3. 의존성 설치
 ```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+### 주요 의존성
+- FastAPI 0.115.0
+- SQLAlchemy 2.0.36 (비동기 ORM)
+- AsyncPG 0.30.0 (PostgreSQL 비동기 드라이버)
+- Pydantic 2.10.2 (데이터 검증)
+- Uvicorn 0.32.1 (ASGI 서버)
+- Python-Jose 3.3.0 (JWT 토큰 처리)
+- Supabase 2.8.1 (BaaS)
 
 4. 환경 변수 설정 (.env 파일 편집)
 ```
@@ -60,6 +71,9 @@ SUPABASE_BUCKET_NAME=autolms-file
 # E-Class 설정
 ECLASS_USERNAME=your_eclass_username
 ECLASS_PASSWORD=your_eclass_password
+
+# 암호화 키 (자동 생성됨)
+ECLASS_ENCRYPTION_KEY=your_generated_key
 ```
 
 5. 데이터베이스 마이그레이션
@@ -70,14 +84,24 @@ alembic upgrade head
 ## 실행 방법
 
 ```bash
-# 개발 모드 실행
-uvicorn main:app --reload
+# 가상환경 활성화 확인
+source .venv/bin/activate
 
-# 또는
+# 개발 모드 실행 (권장)
 python main.py
+
+# 또는 직접 uvicorn 사용
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 서버 실행 후 http://localhost:8000/docs 에서 Swagger UI를 통해 API 문서를 확인할 수 있습니다.
+
+### 시스템 요구사항
+
+- **Python**: 3.12 이상 (f-string, asyncio 완전 지원)
+- **PostgreSQL**: 12 이상
+- **메모리**: 최소 512MB RAM
+- **저장 공간**: 최소 1GB (로그 및 캐시 포함)
 
 ## API 엔드포인트
 
