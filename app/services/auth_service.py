@@ -2,8 +2,6 @@ import logging
 
 from fastapi import HTTPException, status
 from typing import Dict, Any, Optional
-from sqlalchemy import select
-from app.models.user import User
 from supabase.lib.client_options import ClientOptions
 from postgrest.exceptions import APIError
 import traceback
@@ -11,6 +9,7 @@ from datetime import datetime
 
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
+from app.utils.encryption import encrypt_eclass_password, decrypt_eclass_password, is_encrypted
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +35,9 @@ class AuthService:
                     detail="이클래스 계정 정보가 유효하지 않습니다."
                 )
 
-            # 자동으로 이메일과 패스워드 생성
+            # 자동으로 이메일과 패스워드 생성 (eclass_username을 비밀번호로 사용)
             auto_email = f"seoultech@{eclass_username}"
-            import uuid
-            auto_password = str(uuid.uuid4())  # 랜덤 패스워드 생성
+            auto_password = eclass_username  # eclass_username을 Supabase 비밀번호로 사용
             
             logger.info(f"사용자 등록 시작: 이클래스 계정 {eclass_username} -> 자동 이메일 {auto_email}")
 
@@ -59,11 +57,12 @@ class AuthService:
                 try:
                     logger.info(f"사용자 메타데이터 저장 시작: {user_id}")
 
-                    # 저장할 사용자 데이터 구성
+                    # 저장할 사용자 데이터 구성 (이클래스 비밀번호 암호화)
+                    encrypted_eclass_password = encrypt_eclass_password(eclass_password)
                     user_data = {
                         'id': user_id,
                         'eclass_username': eclass_username,
-                        'eclass_password': eclass_password,  # 실제 구현에서는 암호화 필요
+                        'encrypted_session_token': encrypted_eclass_password,  # AES-256 암호화됨 (임시로 이 컬럼 사용)
                         'created_at': datetime.now().isoformat()
                     }
 
@@ -98,7 +97,10 @@ class AuthService:
                         detail=f"사용자 계정이 생성되었지만 이클래스 계정 정보 저장에 실패했습니다. 오류: {str(metadata_error)}"
                     )
 
+                # Supabase JWT 토큰 포함하여 반환
                 return {
+                    "access_token": auth_response.session.access_token if auth_response.session else None,
+                    "refresh_token": auth_response.session.refresh_token if auth_response.session else None,
                     "user": {
                         "id": user_id,
                         "eclass_username": eclass_username
@@ -135,42 +137,43 @@ class AuthService:
                     detail="이클래스 계정 정보가 올바르지 않습니다."
                 )
 
-            # 자동 생성된 이메일로 Supabase 사용자 조회
+            # Supabase Auth 로그인 시도
             auto_email = f"seoultech@{eclass_username}"
+            auto_password = eclass_username  # eclass_username을 비밀번호로 사용
             
-            # 사용자 정보 조회
             try:
-                user_response = self.supabase.table('users').select('*').eq('eclass_username', eclass_username).execute()
+                # Supabase Auth로 로그인
+                auth_response = self.supabase.auth.sign_in_with_password({
+                    "email": auto_email,
+                    "password": auto_password
+                })
                 
-                if not user_response.data or len(user_response.data) == 0:
+                if not auth_response.user or not auth_response.session:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="등록되지 않은 이클래스 계정입니다. 먼저 회원가입을 진행해주세요."
                     )
                 
-                user_data = user_response.data[0]
-                user_id = user_data['id']
+                user_id = auth_response.user.id
                 
-                # 임시 토큰 생성 (실제로는 JWT 토큰 생성)
-                import uuid
-                access_token = str(uuid.uuid4())
+                # 이클래스 비밀번호 업데이트 (암호화된 상태로)
+                await self._update_eclass_password(user_id, eclass_password)
                 
+                # Supabase JWT 토큰 반환
                 return {
-                    "session": {
-                        "access_token": access_token,
-                        "refresh_token": str(uuid.uuid4())
-                    },
+                    "access_token": auth_response.session.access_token,
+                    "refresh_token": auth_response.session.refresh_token,
                     "user": {
                         "id": user_id,
                         "eclass_username": eclass_username
                     }
                 }
                 
-            except Exception as db_error:
-                logger.error(f"사용자 정보 조회 중 오류: {str(db_error)}")
+            except Exception as auth_error:
+                logger.error(f"Supabase 인증 중 오류: {str(auth_error)}")
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="로그인 처리 중 오류가 발생했습니다."
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="로그인 처리 중 오류가 발생했습니다. 회원가입이 필요할 수 있습니다."
                 )
 
         except HTTPException:
@@ -228,30 +231,27 @@ class AuthService:
     async def logout(self, token: str) -> Dict[str, Any]:
         """사용자 로그아웃"""
         try:
-            # 이미 로그아웃된 상태인지 확인
+            # 토큰 유효성 확인
             try:
-                user = self.supabase.auth.get_user(token)
-                if not user:
+                user_response = self.supabase.auth.get_user(token)
+                if not user_response or not user_response.user:
                     return {"status": "already_logged_out", "message": "이미 로그아웃된 상태입니다."}
-            except Exception as e:
-                # 토큰이 유효하지 않은 경우 - 이미 로그아웃되었거나 만료된 경우
+            except Exception:
                 return {"status": "already_logged_out", "message": "이미 로그아웃된 상태입니다."}
 
-            # Supabase의 sign_out 메서드를 모방하여 구현
+            # Supabase Auth 로그아웃
             try:
-                # access_token을 전달하여 서버 측 로그아웃 처리
-                self.supabase.auth.admin.sign_out(token)
-            except Exception:
-                # 오류 무시 - Supabase도 AuthApiError를 무시함
+                self.supabase.auth.sign_out()
+                logger.info("Supabase 로그아웃 성공")
+            except Exception as logout_error:
+                logger.warning(f"Supabase 로그아웃 중 오류 (무시): {str(logout_error)}")
+                # Supabase 로그아웃 실패는 무시하고 성공으로 처리
                 pass
 
-            # 로컬 세션 제거
-            # 클라이언트 측에서는 storage 관리가 필요하지만, 서버 측에서는 세션만 무효화하면 됨
             return {"status": "success", "message": "로그아웃되었습니다."}
 
         except Exception as e:
-            # 예상치 못한 오류 처리
-            # logging.error(f"로그아웃 처리 중 오류: {str(e)}")
+            logger.error(f"로그아웃 처리 중 오류: {str(e)}")
             raise Exception(f"로그아웃 처리 중 오류가 발생했습니다: {str(e)}")
 
     async def validate_eclass_credentials(self, eclass_id: str, eclass_pw: str) -> bool:
@@ -283,28 +283,68 @@ class AuthService:
 
 
     async def get_user_eclass_credentials(self, user_id: str) -> Optional[Dict[str, str]]:
-        """사용자의 이클래스 계정 정보 조회"""
+        """사용자의 이클래스 계정 정보 조회 (Supabase에서)"""
         try:
-            from app.db.base import AsyncSessionLocal
+            # Supabase users 테이블에서 사용자 조회
+            user_response = self.supabase.table('users').select('eclass_username, encrypted_session_token').eq('id', user_id).execute()
+            
+            if not user_response.data or len(user_response.data) == 0:
+                logger.error(f"사용자 {user_id}를 찾을 수 없음")
+                return None
 
-            async with AsyncSessionLocal() as db:
-                # ORM 방식으로 사용자 조회
-                query = select(User).where(User.id == user_id)
-                result = await db.execute(query)
-                user = result.scalar_one_or_none()
+            user_data = user_response.data[0]
+            
+            if not user_data.get('eclass_username') or not user_data.get('encrypted_session_token'):
+                logger.error(f"사용자 {user_id}의 이클래스 계정 정보가 없음")
+                return None
 
-                if not user:
-                    logger.error(f"사용자 {user_id}를 찾을 수 없음")
+            # 비밀번호 복호화
+            eclass_password = user_data['encrypted_session_token']
+            if is_encrypted(eclass_password):
+                try:
+                    decrypted_password = decrypt_eclass_password(eclass_password)
+                except Exception as decrypt_error:
+                    logger.error(f"비밀번호 복호화 실패: {str(decrypt_error)}")
                     return None
-
-                if not user.eclass_username or not user.eclass_password:
-                    logger.error(f"사용자 {user_id}의 이클래스 계정 정보가 없음")
-                    return None
-
-                return {
-                    "username": user.eclass_username,
-                    "password": user.eclass_password
-                }
+            else:
+                # 평문 비밀번호인 경우 (기존 데이터 호환성)
+                decrypted_password = eclass_password
+                logger.warning(f"평문 비밀번호 발견: 사용자 {user_id}")
+            
+            return {
+                "username": user_data['eclass_username'],
+                "password": decrypted_password
+            }
         except Exception as e:
             logger.error(f"이클래스 계정 정보 조회 중 오류: {str(e)}")
             return None
+
+    async def _update_eclass_password(self, user_id: str, eclass_password: str) -> None:
+        """이클래스 비밀번호를 암호화하여 업데이트"""
+        try:
+            # 현재 저장된 비밀번호 확인
+            user_response = self.supabase.table('users').select('encrypted_session_token').eq('id', user_id).execute()
+            
+            if user_response.data and len(user_response.data) > 0:
+                stored_password = user_response.data[0].get('encrypted_session_token', '')
+                
+                # 이미 암호화된 상태이고 복호화했을 때 같은 비밀번호인 경우 스킵
+                if is_encrypted(stored_password):
+                    try:
+                        decrypted_password = decrypt_eclass_password(stored_password)
+                        if decrypted_password == eclass_password:
+                            return  # 업데이트 불필요
+                    except Exception:
+                        pass  # 복호화 실패 시 새로 암호화하여 저장
+                
+                # 비밀번호 암호화하여 업데이트
+                encrypted_password = encrypt_eclass_password(eclass_password)
+                self.supabase.table('users').update({
+                    'encrypted_session_token': encrypted_password
+                }).eq('id', user_id).execute()
+                
+                logger.debug(f"사용자 {user_id}의 이클래스 비밀번호 업데이트 완료")
+                
+        except Exception as e:
+            logger.error(f"이클래스 비밀번호 업데이트 중 오류: {str(e)}")
+            # 비밀번호 업데이트 실패는 로그인 실패로 처리하지 않음

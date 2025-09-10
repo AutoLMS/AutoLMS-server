@@ -56,13 +56,10 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 내부 세션 생성
-    user_id = result.get("user", {}).get("id")
-    user_eclass = result.get("user", {}).get("eclass_username")
-    session_result = await auth_session_service.create_session(user_id, user_eclass)
-
+    # AuthService에서 이미 Supabase JWT를 반환하므로 추가 세션 생성 불필요
     return {
-        "access_token": session_result["access_token"],
+        "access_token": result.get("access_token"),
+        "refresh_token": result.get("refresh_token"),
         "token_type": "bearer",
         "user": result.get("user", {})
     }

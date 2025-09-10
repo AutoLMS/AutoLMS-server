@@ -16,8 +16,7 @@ class Course(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # 관계 정의
-    users = relationship("User", secondary=user_courses, back_populates="courses")
+    # 관계 정의 - User 모델 제거로 인해 주석 처리
     notices = relationship("Notice", back_populates="course")
     materials = relationship("Material", back_populates="course")
     assignments = relationship("Assignment", back_populates="course")
