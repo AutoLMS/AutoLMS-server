@@ -9,6 +9,7 @@ from app.services.session import EclassSessionManager
 from app.services.parsers.course_parser import CourseParser
 from app.db.repositories.course_repository import CourseRepository
 from app.models.course import Course
+from app.models.user import User
 from app.models.user_courses import user_courses
 
 logger = logging.getLogger(__name__)
@@ -81,11 +82,8 @@ class CourseService(BaseService):
             logger.error("강의 목록을 가져오는데 실패했습니다")
             return []
 
-        # HTML 내용 로깅 (디버깅용, 실제 환경에서는 제거)
-        logger.debug(f"HTML 내용: {html[:500]}...")  # 첫 500자만 로깅
 
         courses_data = self.parser.parse_list(html)
-        logger.debug(f"파싱된 강의 목록: {courses_data}")
 
         if not courses_data:
             logger.warning("e-Class에서 가져온 강의 목록이 비어 있습니다")

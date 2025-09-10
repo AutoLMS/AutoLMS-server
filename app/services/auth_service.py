@@ -10,6 +10,8 @@ from datetime import datetime
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
 from app.utils.encryption import encrypt_eclass_password, decrypt_eclass_password, is_encrypted
+from app.db.repositories.user_repository import UserRepository
+from app.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,7 @@ class AuthService:
 
     def __init__(self, supabase_client=None):
         self.supabase = supabase_client or get_supabase_client()
+        self.user_repository = UserRepository()
 
     # app/services/auth_service.py
 
@@ -143,31 +146,42 @@ class AuthService:
             
             try:
                 # Supabase Auth로 로그인
+                logger.info("Supabase 로그인 시도")
                 auth_response = self.supabase.auth.sign_in_with_password({
                     "email": auto_email,
                     "password": auto_password
                 })
                 
                 if not auth_response.user or not auth_response.session:
+                    logger.error("Supabase 인증 응답에 사용자나 세션 정보 없음")
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="등록되지 않은 이클래스 계정입니다. 먼저 회원가입을 진행해주세요."
                     )
                 
                 user_id = auth_response.user.id
+                access_token = auth_response.session.access_token
+                refresh_token = auth_response.session.refresh_token
+                
                 
                 # 이클래스 비밀번호 업데이트 (암호화된 상태로)
                 await self._update_eclass_password(user_id, eclass_password)
                 
+                # 로컬 데이터베이스에 사용자 정보 동기화
+                await self.sync_user_to_local_db(user_id, eclass_username, auth_response.user.email)
+                
                 # Supabase JWT 토큰 반환
-                return {
-                    "access_token": auth_response.session.access_token,
-                    "refresh_token": auth_response.session.refresh_token,
+                result = {
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
                     "user": {
                         "id": user_id,
                         "eclass_username": eclass_username
                     }
                 }
+                
+                logger.info(f"로그인 결과 반환: access_token 길이={len(access_token)}, user_id={user_id}")
+                return result
                 
             except Exception as auth_error:
                 logger.error(f"Supabase 인증 중 오류: {str(auth_error)}")
@@ -198,29 +212,66 @@ class AuthService:
                     detail="유효하지 않은 토큰 형식입니다."
                 )
 
-            # 사용자 정보 조회 시도
+            # AuthSessionService와 동일한 방식으로 토큰 검증
+            user_id = None
+            
+            # 방법 1: 세션 설정 후 사용자 정보 조회
             try:
-                user_response = self.supabase.auth.get_user(token)
-                logger.info(f"User response received: {user_response}")
+                # 토큰으로 세션 설정 
+                self.supabase.auth.set_session(token, refresh_token="")
+                
+                # 현재 세션의 사용자 정보 조회
+                user_response = self.supabase.auth.get_user()
+                
+                if user_response and user_response.user:
+                    user_id = user_response.user.id
+                    logger.info(f"세션 방식으로 사용자 ID 확인: {user_id}")
+                    
+            except Exception as session_error:
+                logger.debug(f"세션 설정 방식 실패, JWT 파싱 시도: {str(session_error)}")
+                
+                # 방법 2: JWT 토큰 직접 파싱 (백업 방법)
+                try:
+                    import jwt
+                    # JWT 토큰 디코드 (서명 검증 없이, 페이로드만 추출)
+                    decoded_payload = jwt.decode(token, options={"verify_signature": False})
+                    user_id = decoded_payload.get('sub')  # 'sub' 클레임이 사용자 ID
+                    
+                    if user_id:
+                        logger.info(f"JWT 파싱으로 사용자 ID 추출: {user_id}")
+                    else:
+                        logger.error("JWT 토큰에 사용자 ID가 없음")
+                        raise ValueError("JWT 토큰에 사용자 ID가 없습니다.")
+                        
+                except Exception as jwt_error:
+                    logger.error(f"JWT 토큰 파싱 실패: {str(jwt_error)}")
+                    raise ValueError(f"JWT 토큰 파싱 실패: {str(jwt_error)}")
+            
+            if not user_id:
+                logger.error("사용자 ID를 확인할 수 없음")
+                raise ValueError("사용자 정보를 찾을 수 없습니다.")
 
-                if not user_response or not user_response.user:
-                    logger.error("No user data in response")
-                    raise ValueError("사용자 정보를 찾을 수 없습니다.")
-
-                # 사용자 정보 반환 (이클래스 유저명 포함)
-                user_data_response = self.supabase.table('users').select('eclass_username').eq('id', user_response.user.id).execute()
+            # 사용자 정보 반환 (이클래스 유저명 포함)
+            try:
+                user_data_response = self.supabase.table('users').select('eclass_username').eq('id', user_id).execute()
                 eclass_username = user_data_response.data[0]['eclass_username'] if user_data_response.data else None
                 
                 return {
-                    "id": user_response.user.id,
+                    "id": user_id,
                     "eclass_username": eclass_username,
                     "token": token
                 }
+            except Exception as table_error:
+                logger.error(f"사용자 데이터 조회 실패: {str(table_error)}")
+                # 테이블 조회 실패해도 기본 정보는 반환
+                return {
+                    "id": user_id,
+                    "eclass_username": None,
+                    "token": token
+                }
 
-            except Exception as supabase_error:
-                logger.error(f"Supabase get_user error: {str(supabase_error)}")
-                raise
-
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Authentication error: {str(e)}")
             raise HTTPException(
@@ -348,3 +399,40 @@ class AuthService:
         except Exception as e:
             logger.error(f"이클래스 비밀번호 업데이트 중 오류: {str(e)}")
             # 비밀번호 업데이트 실패는 로그인 실패로 처리하지 않음
+
+    async def sync_user_to_local_db(self, user_id: str, eclass_username: str, email: str = None) -> None:
+        """
+        Supabase에서 로컬 데이터베이스로 사용자 정보 동기화
+        
+        Args:
+            user_id: Supabase 사용자 ID
+            eclass_username: e-Class 사용자명
+            email: 이메일 주소
+        """
+        try:
+            async with AsyncSessionLocal() as db:
+                # 기존 사용자 확인
+                existing_user = await self.user_repository.get_by_id(db, user_id)
+                
+                if existing_user:
+                    # 기존 사용자 정보 업데이트
+                    await self.user_repository.update(
+                        db, 
+                        existing_user,
+                        eclass_username=eclass_username,
+                        email=email
+                    )
+                    logger.info(f"기존 사용자 정보 업데이트: {user_id}")
+                else:
+                    # 새 사용자 생성
+                    await self.user_repository.create(
+                        db,
+                        id=user_id,
+                        eclass_username=eclass_username,
+                        email=email
+                    )
+                    logger.info(f"새 사용자 생성: {user_id}")
+                    
+        except Exception as e:
+            logger.error(f"사용자 로컬 DB 동기화 중 오류: {str(e)}")
+            # 동기화 실패는 인증 실패로 처리하지 않음

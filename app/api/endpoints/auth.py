@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from typing import Any
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 @router.post("/register", response_model=UserOut)
@@ -102,25 +102,21 @@ async def verify_token(
 ) -> Any:
     """토큰 검증"""
     try:
-        logger.info(f"토큰 검증 API 호출: {token[:10]}...")
         user = await session_service.verify_token(token)
-        logger.debug(f"verify_token 결과: {user}")
 
         if not user:
-            logger.warning("verify_token이 None 반환")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="유효하지 않은 토큰입니다.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        logger.info(f"토큰 검증 성공: {user}")
         return user
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"토큰 검증 중 예외: {str(e)}")
-        import traceback
-        logger.error(f"상세 예외 정보: {traceback.format_exc()}")
+        logger.error(f"토큰 검증 중 예외 발생: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 토큰입니다.",

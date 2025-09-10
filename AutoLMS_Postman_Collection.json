@@ -1,0 +1,792 @@
+{
+	"info": {
+		"_postman_id": "autolms-api-collection",
+		"name": "AutoLMS API Collection",
+		"description": "서울과학기술대학교 e-Class 자동화 시스템 API 컬렉션",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "autolms-api"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eclass_username\": \"your_eclass_username\",\n    \"eclass_password\": \"your_eclass_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						},
+						"description": "새 사용자 등록 - 이클래스 계정만으로 가입"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eclass_username\": \"your_eclass_username\",\n    \"eclass_password\": \"your_eclass_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "로그인 및 토큰 발급 - 이클래스 계정으로 로그인"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "로그아웃"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Token",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/verify",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"verify"
+							]
+						},
+						"description": "토큰 검증 - 상세 디버깅 포함"
+					},
+					"response": []
+				}
+			],
+			"description": "인증 관련 엔드포인트"
+		},
+		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"health"
+							]
+						},
+						"description": "시스템 상태 확인"
+					},
+					"response": []
+				}
+			],
+			"description": "시스템 상태 확인"
+		},
+		{
+			"name": "Courses",
+			"item": [
+				{
+					"name": "Get All Courses",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses?skip=0&limit=100",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses"
+							],
+							"query": [
+								{
+									"key": "skip",
+									"value": "0"
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "모든 강의 목록 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Courses",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"refresh"
+							]
+						},
+						"description": "강의 목록 새로고침"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Course by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}"
+							]
+						},
+						"description": "특정 강의 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Sync Course",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/sync?course_id={{course_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"sync"
+							],
+							"query": [
+								{
+									"key": "course_id",
+									"value": "{{course_id}}"
+								}
+							]
+						},
+						"description": "특정 강의 전체 동기화"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Course Menus",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/menus",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"menus"
+							]
+						},
+						"description": "특정 강의의 메뉴 목록 조회"
+					},
+					"response": []
+				}
+			],
+			"description": "강의 관련 엔드포인트"
+		},
+		{
+			"name": "Notices",
+			"item": [
+				{
+					"name": "Get Notices",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices?skip=0&limit=100",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"notices"
+							],
+							"query": [
+								{
+									"key": "skip",
+									"value": "0"
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "특정 강의의 공지사항 목록 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Notices",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"notices",
+								"refresh"
+							]
+						},
+						"description": "특정 강의의 공지사항 새로고침"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Notice by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices/{{notice_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"notices",
+								"{{notice_id}}"
+							]
+						},
+						"description": "특정 공지사항 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Download Notice Attachment",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/notices/{{notice_id}}/attachments/{{attachment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"notices",
+								"{{notice_id}}",
+								"attachments",
+								"{{attachment_id}}"
+							]
+						},
+						"description": "공지사항 첨부파일 다운로드 URL 조회"
+					},
+					"response": []
+				}
+			],
+			"description": "공지사항 관련 엔드포인트"
+		},
+		{
+			"name": "Materials",
+			"item": [
+				{
+					"name": "Get Materials",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials?skip=0&limit=100",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"materials"
+							],
+							"query": [
+								{
+									"key": "skip",
+									"value": "0"
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "특정 강의의 강의자료 목록 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Materials",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"materials",
+								"refresh"
+							]
+						},
+						"description": "특정 강의의 강의자료 새로고침"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Material by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials/{{material_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"materials",
+								"{{material_id}}"
+							]
+						},
+						"description": "특정 강의자료 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Download Material Attachment",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/materials/{{material_id}}/attachments/{{attachment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"materials",
+								"{{material_id}}",
+								"attachments",
+								"{{attachment_id}}"
+							]
+						},
+						"description": "강의자료 첨부파일 다운로드 URL 조회"
+					},
+					"response": []
+				}
+			],
+			"description": "강의자료 관련 엔드포인트"
+		},
+		{
+			"name": "Assignments",
+			"item": [
+				{
+					"name": "Get Assignments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/assignments?skip=0&limit=100",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"assignments"
+							],
+							"query": [
+								{
+									"key": "skip",
+									"value": "0"
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "특정 강의의 과제 목록 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Assignments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/assignments/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"assignments",
+								"refresh"
+							]
+						},
+						"description": "특정 강의의 과제 새로고침"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Assignment by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/assignments/{{assignment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"assignments",
+								"{{assignment_id}}"
+							]
+						},
+						"description": "특정 과제 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Download Assignment Attachment",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/assignments/{{assignment_id}}/attachments/{{attachment_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"assignments",
+								"{{assignment_id}}",
+								"attachments",
+								"{{attachment_id}}"
+							]
+						},
+						"description": "과제 첨부파일 다운로드 URL 조회"
+					},
+					"response": []
+				}
+			],
+			"description": "과제 관련 엔드포인트"
+		},
+		{
+			"name": "Syllabus",
+			"item": [
+				{
+					"name": "Get Syllabus",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/syllabus",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"syllabus"
+							]
+						},
+						"description": "특정 강의의 강의계획서 조회"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Syllabus",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/courses/{{course_id}}/syllabus/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"courses",
+								"{{course_id}}",
+								"syllabus",
+								"refresh"
+							]
+						},
+						"description": "특정 강의의 강의계획서 새로고침"
+					},
+					"response": []
+				}
+			],
+			"description": "강의계획서 관련 엔드포인트"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"description": "AutoLMS API Base URL"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"description": "Access token from login response"
+		},
+		{
+			"key": "course_id",
+			"value": "",
+			"description": "Course ID for testing"
+		},
+		{
+			"key": "notice_id",
+			"value": "",
+			"description": "Notice ID for testing"
+		},
+		{
+			"key": "material_id",
+			"value": "",
+			"description": "Material ID for testing"
+		},
+		{
+			"key": "assignment_id",
+			"value": "",
+			"description": "Assignment ID for testing"
+		},
+		{
+			"key": "attachment_id",
+			"value": "",
+			"description": "Attachment ID for testing"
+		}
+	]
+}

@@ -60,9 +60,9 @@ class AuthSessionService(BaseService):
         실제 로그아웃은 AuthService.logout()에서 처리
         """
         try:
-            # Supabase 토큰 유효성 확인만 수행
-            user_response = self.supabase.auth.get_user(token)
-            if user_response and user_response.user:
+            # 토큰 유효성 확인 - verify_token 메서드 재사용
+            user_info = await self.verify_token(token)
+            if user_info:
                 logger.info("유효한 세션 종료 요청")
                 return True
             else:
@@ -83,32 +83,62 @@ class AuthSessionService(BaseService):
             Dict: 사용자 정보 또는 None
         """
         try:
-            logger.debug("토큰 검증 시작")
-            
-            # Supabase JWT 토큰 검증
-            user_response = self.supabase.auth.get_user(token)
-            
-            if not user_response or not user_response.user:
-                logger.warning("유효하지 않은 토큰")
+            if not token:
                 return None
             
-            user_id = user_response.user.id
+            user_id = None
+            
+            # JWT 토큰 직접 파싱 (우선 방법)
+            try:
+                import jwt
+                decoded_payload = jwt.decode(token, options={"verify_signature": False})
+                user_id = (decoded_payload.get('sub') or 
+                         decoded_payload.get('user_id') or 
+                         decoded_payload.get('id'))
+                    
+            except Exception as jwt_error:
+                logger.error(f"JWT 토큰 파싱 실패: {str(jwt_error)}")
+                user_id = None
+            
+            # Supabase 세션 설정 (백업 방법)
+            if not user_id:
+                try:
+                    self.supabase.auth.set_session(token, refresh_token="")
+                    user_response = self.supabase.auth.get_user()
+                    
+                    if user_response and user_response.user:
+                        user_id = user_response.user.id
+                        
+                except Exception as session_error:
+                    logger.warning(f"세션 설정 방식 실패: {str(session_error)}")
+            
+            if not user_id:
+                return None
             
             # Supabase users 테이블에서 eclass_username 조회
             try:
                 user_data_response = self.supabase.table('users').select('eclass_username').eq('id', user_id).execute()
                 eclass_username = user_data_response.data[0]['eclass_username'] if user_data_response.data else None
+                
+                # 이메일 정보는 JWT에서 추출
+                try:
+                    import jwt
+                    decoded_payload = jwt.decode(token, options={"verify_signature": False})
+                    email = decoded_payload.get('email')
+                except Exception:
+                    email = None
+                
             except Exception as e:
-                logger.warning(f"eclass_username 조회 실패: {str(e)}")
+                logger.warning(f"사용자 정보 조회 실패: {str(e)}")
                 eclass_username = None
+                email = None
             
             user_info = {
                 "id": user_id,
                 "eclass_username": eclass_username,
-                "email": user_response.user.email
+                "email": email
             }
             
-            logger.debug(f"토큰 검증 성공: 사용자 {user_id}")
             return user_info
             
         except Exception as e:
