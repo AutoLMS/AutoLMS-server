@@ -36,7 +36,7 @@ async def sync_course(
     """특정 강의 전체 동기화"""
     try:
         # 강의 존재 확인
-        course = await course_service.get_course_detail(current_user["id"], course_id)
+        course = await course_service.get_course(current_user["id"], course_id)
         if not course:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

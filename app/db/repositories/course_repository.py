@@ -91,8 +91,8 @@ class CourseRepository:
                 return None
                 
             # 2. 사용자를 강의에 등록
-            from app.db.repositories.supabase_user_courses_repository import SupabaseUserCoursesRepository
-            user_courses_repo = SupabaseUserCoursesRepository(use_service_key=True)
+            from app.db.repositories.user_courses_repository import UserCoursesRepository
+            user_courses_repo = UserCoursesRepository(use_service_key=True)
             await user_courses_repo.enroll_user_in_course(user_id, course_data['course_id'])
             
             return course_result

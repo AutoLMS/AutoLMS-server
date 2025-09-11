@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Any
 
 from app.schemas.course import Course, CourseList
@@ -21,8 +21,6 @@ router = APIRouter()
 @router.get("/", response_model=CourseList)
 async def get_courses(
     current_user: dict = Depends(get_current_user),
-    skip: int = 0,
-    limit: int = 100,
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
     """모든 강의 목록 조회"""
@@ -34,12 +32,11 @@ async def get_courses(
 
 @router.get("/refresh", response_model=CourseList)
 async def refresh_courses(
-    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
     """강의 목록 새로고침"""
-    courses = await course_service.get_courses(user_id=current_user["id"], force_refresh=True)
+    courses = await course_service.get_courses(user_id=current_user["id"])
     return {
         "courses": courses,
         "total": len(courses),

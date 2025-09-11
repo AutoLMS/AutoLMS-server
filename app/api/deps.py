@@ -182,6 +182,7 @@ def get_assignment_service(
     global _assignment_service
     if not _assignment_service:
         _assignment_service = AssignmentService(
+            storage_service=storage_service,
             session_service=eclass_session_manager,
             assignment_parser=assignment_parser,
             assignment_repository=assignment_repository,

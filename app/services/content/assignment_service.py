@@ -46,8 +46,7 @@ class AssignmentService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
-            
+
         Returns:
             List[Assignment]: 과제 목록
         """
@@ -137,7 +136,6 @@ class AssignmentService(BaseService):
         특정 강의의 과제 새로고침
         
         Args:
-            db: 데이터베이스 세션
             course_id: 강의 ID
             user_id: 사용자 ID
             auto_download: 첨부파일 자동 다운로드 여부
@@ -227,6 +225,7 @@ class AssignmentService(BaseService):
                     # 첨부파일 처리
                     if auto_download and assignment.get("attachments"):
                         attachment_count = await self._process_attachments(
+                            user_id,
                             eclass_session,
                             assignment["attachments"],
                             created_assignment.id,
@@ -257,7 +256,6 @@ class AssignmentService(BaseService):
         첨부파일 처리 및 저장
 
         Args:
-            db: 데이터베이스 세션
             eclass_session: 이클래스 세션 객체
             attachments: 첨부파일 정보 목록
             source_id: 소스(강의자료) ID

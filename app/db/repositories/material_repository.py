@@ -60,3 +60,73 @@ class MaterialRepository:
         except Exception as e:
             logger.error(f"학습자료 사용자별 조회 오류: {e}")
             return []
+    
+    async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """새로운 학습자료 생성"""
+        try:
+            # material_id 필드 처리
+            if "material_id" not in kwargs and "article_id" in kwargs:
+                kwargs["material_id"] = kwargs["article_id"]
+            
+            result = self.supabase.table(self.table_name)\
+                .insert(kwargs)\
+                .execute()
+            
+            if result.data:
+                logger.info(f"학습자료 생성 완료: {kwargs.get('title', 'Unknown')}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"학습자료 생성 오류: {e}")
+            return None
+    
+    async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """학습자료 생성 또는 업데이트 (material_id로 중복 체크)"""
+        try:
+            # material_id 필드 처리
+            if "material_id" not in kwargs and "article_id" in kwargs:
+                kwargs["material_id"] = kwargs["article_id"]
+            
+            result = self.supabase.table(self.table_name)\
+                .upsert(kwargs, on_conflict="material_id,course_id,user_id")\
+                .execute()
+            
+            if result.data:
+                logger.info(f"학습자료 upsert 완료: {kwargs.get('title', 'Unknown')}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"학습자료 upsert 오류: {e}")
+            return None
+    
+    async def update(self, material_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """학습자료 업데이트"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .update(kwargs)\
+                .eq("id", material_id)\
+                .execute()
+            
+            if result.data:
+                logger.info(f"학습자료 업데이트 완료: {material_id}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"학습자료 업데이트 오류: {e}")
+            return None
+    
+    async def delete(self, material_id: str) -> bool:
+        """학습자료 삭제"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .delete()\
+                .eq("id", material_id)\
+                .execute()
+            
+            success = len(result.data) > 0
+            if success:
+                logger.info(f"학습자료 삭제 완료: {material_id}")
+            return success
+        except Exception as e:
+            logger.error(f"학습자료 삭제 오류: {e}")
+            return False

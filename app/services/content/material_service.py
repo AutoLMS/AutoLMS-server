@@ -22,17 +22,34 @@ class MaterialService(BaseService):
             storage_service: StorageService,
             auth_service: AuthService
     ):
-        # 부모 클래스 초기화 - 필수 매개변수만 전달
-        super().__init__(
-            eclass_session,
-            material_parser,
-            material_repository,
-            content_type="materials"
-        )
-        # 클래스 변수 직접 설정
+        # BaseService에는 __init__이 없으므로 super() 호출 제거
+        # 모든 필요한 속성들을 직접 설정
+        self.session_service = eclass_session
+        self.parser = material_parser
+        self.repository = material_repository
         self.auth_service = auth_service
         self.attachment_repository = attachment_repository
         self.storage_service = storage_service
+    
+    async def initialize(self) -> None:
+        """서비스 초기화"""
+        logger.info("MaterialService 초기화 시작")
+        
+        # 필요한 초기화 작업 수행
+        if hasattr(self.storage_service, 'initialize'):
+            await self.storage_service.initialize()
+        
+        logger.info("MaterialService 초기화 완료")
+    
+    async def close(self) -> None:
+        """서비스 리소스 정리"""
+        logger.info("MaterialService 리소스 정리 시작")
+        
+        # 필요한 정리 작업 수행
+        if hasattr(self.storage_service, 'close'):
+            await self.storage_service.close()
+        
+        logger.info("MaterialService 리소스 정리 완료")
 
     async def refresh_all(
         self, 
@@ -44,7 +61,6 @@ class MaterialService(BaseService):
         특정 강의의 강의자료 새로고침
         
         Args:
-            db: 데이터베이스 세션
             course_id: 강의 ID
             user_id: 사용자 ID
             auto_download: 첨부파일 자동 다운로드 여부
@@ -87,7 +103,7 @@ class MaterialService(BaseService):
                 return result
             
             # 4. 기존 강의자료 조회
-            existing_materials = await self.repository.get_by_course_id(db, course_id)
+            existing_materials = await self.repository.get_by_course_id(course_id)
             existing_article_ids = {material.article_id for material in existing_materials}
             
             # 5. 각 강의자료 처리
@@ -141,7 +157,6 @@ class MaterialService(BaseService):
                     # 첨부파일 처리
                     if auto_download and material.get("attachments"):
                         attachment_count = await self._process_attachments(
-                            db,
                             eclass_session,
                             material["attachments"],
                             created_material.id,
@@ -162,7 +177,6 @@ class MaterialService(BaseService):
 
     async def _process_attachments(
             self,
-            user_id: str,
             eclass_session,
             attachments: List[Dict[str, Any]],
             source_id: int,
@@ -172,7 +186,6 @@ class MaterialService(BaseService):
         첨부파일 처리 및 저장
 
         Args:
-            db: 데이터베이스 세션
             eclass_session: 이클래스 세션 객체
             attachments: 첨부파일 정보 목록
             source_id: 소스(강의자료) ID
@@ -253,7 +266,7 @@ class MaterialService(BaseService):
                 }
 
                 # 데이터베이스에 저장
-                await self.attachment_repository.create(db, attachment_data)
+                await self.attachment_repository.upsert(attachment_data)
                 count += 1
                 logger.info(f"첨부파일 메타데이터 저장 완료: {file_name}")
 

@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 
 from app.db.repositories.attachment_repository import AttachmentRepository
 from app.db.repositories.course_repository import CourseRepository
+from app.schemas.attachment import Attachment
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,6 @@ async def verify_course_access(
     Args:
         user_id: 접근을 요청하는 사용자 ID
         course_id: 접근하려는 강의 ID
-        db: 데이터베이스 세션
         course_repository: 강의 저장소 (의존성 주입용)
         
     Returns:

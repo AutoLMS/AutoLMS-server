@@ -1,8 +1,6 @@
 import logging
 import os
-import hashlib
-from typing import Dict, Any, Optional, BinaryIO, Union, List
-from pathlib import Path
+from typing import Optional, BinaryIO, Union
 
 from app.services.base_service import BaseService
 from app.core.config import settings
@@ -79,8 +77,7 @@ class StorageService(BaseService):
                     return file_path
                 except Exception as e:
                     logger.error(f"Supabase 업로드 중 오류: {str(e)}")
-                    # 실패 시 로컬에 저장 시도
-            
+
             # Supabase가 설정되지 않은 경우나 업로드 실패 시 로컬에 저장
             return await self._save_file_locally(file_data, course_id, content_type, filename)
             

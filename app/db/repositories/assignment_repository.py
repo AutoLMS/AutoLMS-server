@@ -60,3 +60,73 @@ class AssignmentRepository:
         except Exception as e:
             logger.error(f"과제 사용자별 조회 오류: {e}")
             return []
+    
+    async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """새로운 과제 생성"""
+        try:
+            # assignment_id 필드 처리
+            if "assignment_id" not in kwargs and "article_id" in kwargs:
+                kwargs["assignment_id"] = kwargs["article_id"]
+            
+            result = self.supabase.table(self.table_name)\
+                .insert(kwargs)\
+                .execute()
+            
+            if result.data:
+                logger.info(f"과제 생성 완료: {kwargs.get('title', 'Unknown')}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"과제 생성 오류: {e}")
+            return None
+    
+    async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """과제 생성 또는 업데이트 (assignment_id로 중복 체크)"""
+        try:
+            # assignment_id 필드 처리
+            if "assignment_id" not in kwargs and "article_id" in kwargs:
+                kwargs["assignment_id"] = kwargs["article_id"]
+            
+            result = self.supabase.table(self.table_name)\
+                .upsert(kwargs, on_conflict="assignment_id,course_id,user_id")\
+                .execute()
+            
+            if result.data:
+                logger.info(f"과제 upsert 완료: {kwargs.get('title', 'Unknown')}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"과제 upsert 오류: {e}")
+            return None
+    
+    async def update(self, assignment_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """과제 업데이트"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .update(kwargs)\
+                .eq("id", assignment_id)\
+                .execute()
+            
+            if result.data:
+                logger.info(f"과제 업데이트 완료: {assignment_id}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"과제 업데이트 오류: {e}")
+            return None
+    
+    async def delete(self, assignment_id: str) -> bool:
+        """과제 삭제"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .delete()\
+                .eq("id", assignment_id)\
+                .execute()
+            
+            success = len(result.data) > 0
+            if success:
+                logger.info(f"과제 삭제 완료: {assignment_id}")
+            return success
+        except Exception as e:
+            logger.error(f"과제 삭제 오류: {e}")
+            return False

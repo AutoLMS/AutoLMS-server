@@ -49,7 +49,6 @@ class SyllabusService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
             force_refresh: 강제 새로고침 여부
             
         Returns:
@@ -59,7 +58,7 @@ class SyllabusService(BaseService):
         
         # 이미 저장된 강의계획서 확인
         if not force_refresh:
-            existing_syllabus = await self.repository.get_by_course_id(db, course_id)
+            existing_syllabus = await self.repository.get_by_course_id(course_id)
             if existing_syllabus:
                 logger.info(f"저장된 강의계획서 반환 (course_id: {course_id})")
                 return existing_syllabus.to_dict() if hasattr(existing_syllabus, 'to_dict') else vars(existing_syllabus)
@@ -102,12 +101,12 @@ class SyllabusService(BaseService):
             }
             
             # 저장소에 저장
-            existing_syllabus = await self.repository.get_by_course_id(db, course_id)
+            existing_syllabus = await self.repository.get_by_course_id(course_id)
             if existing_syllabus:
-                updated_syllabus = await self.repository.update(db, existing_syllabus.id, syllabus_json)
+                updated_syllabus = await self.repository.update(existing_syllabus.id, syllabus_json)
                 saved_syllabus = updated_syllabus
             else:
-                saved_syllabus = await self.repository.create(db, syllabus_json)
+                saved_syllabus = await self.repository.create(syllabus_json)
             
             logger.info(f"강의계획서 조회 완료 (course_id: {course_id})")
             return saved_syllabus.to_dict() if hasattr(saved_syllabus, 'to_dict') else vars(saved_syllabus)
@@ -123,8 +122,7 @@ class SyllabusService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
-            
+
         Returns:
             Dict[str, Any]: 새로고침 결과
         """
@@ -132,7 +130,7 @@ class SyllabusService(BaseService):
         
         try:
             result["count"] = 1
-            syllabus = await self.get_syllabus(user_id, course_id, db, force_refresh=True)
+            syllabus = await self.get_syllabus(user_id, course_id, force_refresh=True)
             
             if syllabus:
                 result["success"] = 1
@@ -151,7 +149,6 @@ class SyllabusService(BaseService):
         강의계획서 새로고침 (다른 서비스와 형식 통일)
         
         Args:
-            db: 데이터베이스 세션
             course_id: 강의 ID
             user_id: 사용자 ID
             
@@ -159,7 +156,7 @@ class SyllabusService(BaseService):
             Dict[str, Any]: 새로고침 결과
         """
         # refresh_syllabus 메서드를 호출하여 새로고침 작업 수행
-        result = await self.refresh_syllabus(user_id, course_id, db)
+        result = await self.refresh_syllabus(user_id, course_id)
         
         # 결과 형식 변환 (다른 서비스와 형식 통일)
         # 'count'/'success' 대신 'count'/'new' 사용

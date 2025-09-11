@@ -88,7 +88,7 @@ class CrawlService(BaseService):
 
         try:
             # 1. 강의 목록 가져오기
-            courses = await self.course_service.get_courses(user_id, force_refresh=True)
+            courses = await self.course_service.get_courses(user_id)
             result["courses"] = len(courses)
 
             # 2. 특정 강의만 처리하는 경우
@@ -310,7 +310,7 @@ class CrawlService(BaseService):
             }
 
         # 강의 목록 가져오기
-        courses = await self.course_service.get_courses(user_id, force_refresh=True)
+        courses = await self.course_service.get_courses(user_id)
 
         if not courses:
             logger.warning("크롤링할 강의가 없습니다.")
@@ -520,7 +520,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db_session: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
             task_id: 작업 ID
 
