@@ -120,17 +120,6 @@ class EclassSessionManager(BaseService):
                     "password": user_data["eclass_password"]  # 실제로는 복호화 필요
                 }
 
-            # 환경 변수의 기본 계정 정보 사용 (공통 계정)
-            # 참고: 이는 임시 대안이며, 이상적으로는 각 사용자가 자신의 계정을 사용해야 함
-            from app.core.config import settings
-            if settings.ECLASS_USERNAME and settings.ECLASS_PASSWORD:
-                logger.warning(f"사용자 {user_id}의 이클래스 계정 정보가 없어 기본 계정 사용")
-                return {
-                    "username": settings.ECLASS_USERNAME,
-                    "password": settings.ECLASS_PASSWORD
-                }
-
-            return None
         except Exception as e:
             logger.error(f"이클래스 계정 정보 조회 중 오류: {str(e)}")
             return None

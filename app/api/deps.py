@@ -11,8 +11,10 @@ from app.services.content import (
     AssignmentService,
     SyllabusService,
 )
-from app.services.session import AuthSessionService, EclassSessionManager
+from app.services.session import EclassSessionManager
 from app.services.storage import StorageService
+from app.utils.jwt_utils import jwt_manager
+from app.services.session_manager import session_manager
 from app.services.parsers import (
     CourseParser,
     NoticeParser,
@@ -31,7 +33,6 @@ from app.db.repositories.syllabus_repository import SyllabusRepository
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 # 싱글톤 인스턴스
-_auth_session_service = None
 _eclass_session_manager = None
 _storage_service = None
 _course_service = None
@@ -42,13 +43,14 @@ _assignment_service = None
 _syllabus_service = None
 _crawl_service = None
 
-# 세션 서비스 의존성
-def get_auth_session_service() -> AuthSessionService:
-    """앱 인증 세션 서비스 제공"""
-    global _auth_session_service
-    if not _auth_session_service:
-        _auth_session_service = AuthSessionService()
-    return _auth_session_service
+# JWT 및 세션 매니저 의존성
+def get_jwt_manager():
+    """JWT 매니저 제공"""
+    return jwt_manager
+
+def get_session_manager():
+    """세션 매니저 제공"""
+    return session_manager
 
 def get_eclass_session_manager() -> EclassSessionManager:
     """이클래스 세션 관리자 제공"""
@@ -235,18 +237,46 @@ def get_crawl_service(
 # 사용자 인증 의존성
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    auth_session_service: AuthSessionService = Depends(get_auth_session_service)
+    jwt_manager_instance = Depends(get_jwt_manager),
+    auth_service: AuthService = Depends(get_auth_service)
 ):
-    """현재 로그인한 사용자 확인"""
-    user_info = await auth_session_service.verify_token(token)
-    
-    if not user_info:
+    """현재 로그인한 사용자 확인 (JWT 기반)"""
+    try:
+        # JWT 토큰 검증
+        payload = jwt_manager_instance.verify_token(token, "access")
+        user_id = payload.get("user_id")
+        eclass_username = payload.get("eclass_username")
+        
+        if not user_id or not eclass_username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="토큰에서 사용자 정보를 찾을 수 없습니다.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # 사용자 존재 여부 확인 (선택사항 - 추가 보안)
+        user = await auth_service.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="사용자를 찾을 수 없습니다.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # 사용자 정보 반환
+        return {
+            "id": user_id,
+            "eclass_username": eclass_username,
+            **user
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="유효하지 않은 인증 정보",
+            detail="토큰 검증 중 오류가 발생했습니다.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    return user_info
 
 # Supabase 기반 데이터베이스 - 세션 의존성 불필요

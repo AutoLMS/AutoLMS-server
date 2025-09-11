@@ -12,7 +12,7 @@ class AssignmentRepository:
     def __init__(self, use_service_key: bool = False):
         if use_service_key:
             # Service Key 사용 (RLS 우회)
-            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
         else:
             # 일반 클라이언트
             self.supabase: Client = get_supabase_client()

@@ -6,6 +6,7 @@ Supabase JWT 토큰 검증만 담당하는 경량화된 서비스로 리팩토�
 """
 
 import logging
+import jwt
 from typing import Dict, Optional, Any
 from fastapi import HTTPException, status
 
@@ -42,36 +43,6 @@ class AuthSessionService(BaseService):
         logger.info("AuthSessionService 종료")
         pass
 
-    async def create_session(self, user_id: str, eclass_username: str = None) -> Dict[str, Any]:
-        """
-        세션 생성 - 실제로는 이미 생성된 Supabase JWT를 사용하므로 더 이상 필요 없음
-        AuthService에서 직접 Supabase JWT를 반환하도록 변경됨
-        
-        이 메서드는 기존 호환성을 위해 유지하되, 경고를 출력
-        """
-        logger.warning("create_session은 더 이상 사용되지 않습니다. AuthService에서 직접 Supabase JWT를 사용하세요.")
-        return {
-            "message": "Use AuthService.register() or AuthService.login() directly for JWT tokens"
-        }
-
-    async def end_session(self, token: str) -> bool:
-        """
-        세션 종료 - Supabase Auth로 위임
-        실제 로그아웃은 AuthService.logout()에서 처리
-        """
-        try:
-            # 토큰 유효성 확인 - verify_token 메서드 재사용
-            user_info = await self.verify_token(token)
-            if user_info:
-                logger.info("유효한 세션 종료 요청")
-                return True
-            else:
-                logger.info("이미 만료된 세션")
-                return False
-        except Exception as e:
-            logger.error(f"세션 종료 중 오류: {str(e)}")
-            return False
-
     async def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
         JWT 토큰 검증 및 사용자 정보 반환
@@ -90,7 +61,6 @@ class AuthSessionService(BaseService):
             
             # JWT 토큰 직접 파싱 (우선 방법)
             try:
-                import jwt
                 decoded_payload = jwt.decode(token, options={"verify_signature": False})
                 user_id = (decoded_payload.get('sub') or 
                          decoded_payload.get('user_id') or 
@@ -120,23 +90,13 @@ class AuthSessionService(BaseService):
                 user_data_response = self.supabase.table('users').select('eclass_username').eq('id', user_id).execute()
                 eclass_username = user_data_response.data[0]['eclass_username'] if user_data_response.data else None
                 
-                # 이메일 정보는 JWT에서 추출
-                try:
-                    import jwt
-                    decoded_payload = jwt.decode(token, options={"verify_signature": False})
-                    email = decoded_payload.get('email')
-                except Exception:
-                    email = None
-                
             except Exception as e:
                 logger.warning(f"사용자 정보 조회 실패: {str(e)}")
                 eclass_username = None
-                email = None
-            
+
             user_info = {
                 "id": user_id,
-                "eclass_username": eclass_username,
-                "email": email
+                "eclass_username": eclass_username
             }
             
             return user_info

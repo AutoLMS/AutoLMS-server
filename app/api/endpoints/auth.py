@@ -6,9 +6,8 @@ from typing import Any
 
 from app.schemas.auth import UserCreate, UserLogin, Token, UserOut
 from app.services.auth_service import AuthService
-from app.services.session.auth_session_service import AuthSessionService
 from app.services.session.eclass_session_manager import EclassSessionManager
-from app.api.deps import get_auth_service, get_auth_session_service, get_eclass_session_manager, get_current_user
+from app.api.deps import get_auth_service, get_eclass_session_manager, get_current_user, get_jwt_manager, get_session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -67,27 +66,25 @@ async def login(
 @router.post("/logout")
 async def logout(
         token: str = Depends(oauth2_scheme),
-        auth_session_service: AuthSessionService = Depends(get_auth_session_service),
+        auth_service: AuthService = Depends(get_auth_service),
         eclass_session_manager: EclassSessionManager = Depends(get_eclass_session_manager),
         current_user: dict = Depends(get_current_user)
 ) -> Any:
-    """로그아웃"""
+    """로그아웃 (JWT 기반)"""
     try:
-        # 인증 세션 종료
-        auth_result = await auth_session_service.end_session(token)
+        user_id = current_user.get("id")
+        
+        # JWT 세션 종료
+        auth_result = await auth_service.logout(token, user_id)
 
         # 이클래스 세션도 함께 종료
-        user_id = current_user.get("id")
         if user_id:
             await eclass_session_manager.invalidate_session(user_id)
 
-        # 이미 로그아웃된 상태 처리
-        if not auth_result:
-            return {"message": "이미 로그아웃된 상태입니다.", "status": "already_logged_out"}
+        return auth_result
 
-        return {"message": "로그아웃 성공", "status": "success"}
     except Exception as e:
-        # 오류 발생 시 처리
+        logger.error(f"로그아웃 중 오류: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -96,28 +93,36 @@ async def logout(
 
 @router.get("/verify", response_model=UserOut)
 async def verify_token(
-        token: str = Depends(oauth2_scheme),
-        session_service: AuthSessionService = Depends(get_auth_session_service)
+        current_user: dict = Depends(get_current_user)
 ) -> Any:
-    """토큰 검증"""
+    """토큰 검증 (JWT 기반)"""
+    return current_user
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+        refresh_token: str,
+        jwt_manager_instance = Depends(get_jwt_manager),
+        session_manager_instance = Depends(get_session_manager)
+) -> Any:
+    """리프레시 토큰으로 새 액세스 토큰 발급"""
     try:
-        user = await session_service.verify_token(token)
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="유효하지 않은 토큰입니다.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return user
+        # 새 액세스 토큰 생성
+        new_access_token = jwt_manager_instance.refresh_access_token(refresh_token)
+        
+        # 기존 리프레시 토큰 유지 (필요시 갱신 로직 추가 가능)
+        return {
+            "access_token": new_access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"토큰 검증 중 예외 발생: {str(e)}")
+        logger.error(f"토큰 갱신 중 오류: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="유효하지 않은 토큰입니다.",
+            detail="리프레시 토큰이 유효하지 않습니다.",
             headers={"WWW-Authenticate": "Bearer"},
         )

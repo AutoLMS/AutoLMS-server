@@ -12,8 +12,8 @@ class SessionManager:
     """JWT와 eclass HTTP 세션을 통합 관리하는 세션 매니저"""
     
     def __init__(self):
-        # Service key로 Supabase 클라이언트 초기화 (RLS 우회)
-        self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+        # Service key로 Supabase 클라이언트 초기화
+        self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
     
     async def create_jwt_session(
         self,
