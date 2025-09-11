@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime
 import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy removed
 
 from app.services.base_service import BaseService
 from app.services.session.eclass_session_manager import EclassSessionManager
@@ -62,7 +62,6 @@ class CrawlService(BaseService):
             self,
             user_id: str,
             course_id: str = None,
-            db: AsyncSession = None,
             auto_download: bool = False
     ) -> Dict[str, Any]:
         """
@@ -71,7 +70,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID (None인 경우 모든 강의)
-            db: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
 
         Returns:
@@ -90,7 +88,7 @@ class CrawlService(BaseService):
 
         try:
             # 1. 강의 목록 가져오기
-            courses = await self.course_service.get_courses(user_id, db, force_refresh=True)
+            courses = await self.course_service.get_courses(user_id, force_refresh=True)
             result["courses"] = len(courses)
 
             # 2. 특정 강의만 처리하는 경우
@@ -106,7 +104,7 @@ class CrawlService(BaseService):
 
                 # 3.1 강의계획서 크롤링
                 try:
-                    syllabus_result = await self.syllabus_service.refresh_all(db, course.id, user_id)
+                    syllabus_result = await self.syllabus_service.refresh_all(course.id, user_id)
                     result["syllabus"]["new"] += syllabus_result.get("new", 0)
                     result["syllabus"]["errors"] += syllabus_result.get("errors", 0)
                 except Exception as e:
@@ -115,7 +113,7 @@ class CrawlService(BaseService):
 
                 # 3.2 공지사항 크롤링
                 try:
-                    notice_result = await self.crawl_notices(user_id, course.id, db, auto_download)
+                    notice_result = await self.crawl_notices(user_id, course.id,auto_download)
                     result["notices"]["new"] += notice_result.get("new", 0)
                     result["notices"]["errors"] += notice_result.get("errors", 0)
                 except Exception as e:
@@ -124,7 +122,7 @@ class CrawlService(BaseService):
 
                 # 3.3 강의자료 크롤링
                 try:
-                    material_result = await self.material_service.refresh_all(db, course.id, user_id, auto_download)
+                    material_result = await self.material_service.refresh_all(course.id, user_id, auto_download)
                     result["materials"]["new"] += material_result.get("new", 0)
                     result["materials"]["errors"] += material_result.get("errors", 0)
                 except Exception as e:
@@ -133,7 +131,7 @@ class CrawlService(BaseService):
 
                 # 3.4 과제 크롤링
                 try:
-                    assignment_result = await self.crawl_assignments(user_id, course.id, db, auto_download)
+                    assignment_result = await self.crawl_assignments(user_id, course.id, auto_download)
                     result["assignments"]["new"] += assignment_result.get("new", 0)
                     result["assignments"]["errors"] += assignment_result.get("errors", 0)
                 except Exception as e:
@@ -159,7 +157,6 @@ class CrawlService(BaseService):
             self,
             user_id: str,
             course_id: str,
-            db: AsyncSession,
             auto_download: bool = False
     ) -> Dict[str, Any]:
         """
@@ -168,7 +165,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
 
         Returns:
@@ -178,7 +174,7 @@ class CrawlService(BaseService):
 
         try:
             # 공지사항 크롤링 실행
-            notice_result = await self.notice_service.refresh_all(db, course_id, user_id, auto_download)
+            notice_result = await self.notice_service.refresh_all(course_id, user_id, auto_download)
 
             logger.info(f"공지사항 크롤링 완료 - 강의: {course_id}")
             logger.info(
@@ -194,7 +190,6 @@ class CrawlService(BaseService):
             self,
             user_id: str,
             course_id: str,
-            db: AsyncSession,
             auto_download: bool = False
     ) -> Dict[str, Any]:
         """
@@ -203,7 +198,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
 
         Returns:
@@ -213,7 +207,7 @@ class CrawlService(BaseService):
 
         try:
             # 과제 크롤링 실행
-            assignment_result = await self.assignment_service.refresh_all(db, course_id, user_id, auto_download)
+            assignment_result = await self.assignment_service.refresh_all(course_id, user_id, auto_download)
 
             logger.info(f"과제 크롤링 완료 - 강의: {course_id}")
             logger.info(
@@ -229,7 +223,6 @@ class CrawlService(BaseService):
             self,
             user_id: str,
             course_id: str,
-            db: AsyncSession,
             auto_download: bool = False
     ) -> Dict[str, Any]:
         """
@@ -238,7 +231,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
 
         Returns:
@@ -248,7 +240,7 @@ class CrawlService(BaseService):
 
         try:
             # 강의자료 크롤링 실행
-            material_result = await self.material_service.refresh_all(db, course_id, user_id, auto_download)
+            material_result = await self.material_service.refresh_all(course_id, user_id, auto_download)
 
             logger.info(f"강의자료 크롤링 완료 - 강의: {course_id}")
             logger.info(
@@ -264,7 +256,6 @@ class CrawlService(BaseService):
             self,
             user_id: str,
             course_id: str,
-            db: AsyncSession
     ) -> Dict[str, Any]:
         """
         특정 강의의 강의계획서 크롤링
@@ -272,7 +263,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db: 데이터베이스 세션
 
         Returns:
             Dict[str, Any]: 크롤링 결과
@@ -281,7 +271,7 @@ class CrawlService(BaseService):
 
         try:
             # 강의계획서 크롤링 실행
-            syllabus_result = await self.syllabus_service.refresh_all(db, course_id, user_id)
+            syllabus_result = await self.syllabus_service.refresh_all(course_id, user_id)
 
             logger.info(f"강의계획서 크롤링 완료 - 강의: {course_id}")
             logger.info(f"결과: 새로운 항목 {syllabus_result['new']}개, 오류 {syllabus_result['errors']}개")
@@ -292,14 +282,13 @@ class CrawlService(BaseService):
             logger.error(f"강의계획서 크롤링 중 오류 발생: {str(e)}")
             return {"new": 0, "errors": 1}
 
-    async def crawl_all_courses(self, user_id: str, db_session: AsyncSession, auto_download: bool = False) -> Dict[
+    async def crawl_all_courses(self, user_id: str, auto_download: bool = False) -> Dict[
         str, Any]:
         """
         모든 강의 크롤링 (이전 EclassService의 타스크 관리 기능 포함)
 
         Args:
             user_id: 사용자 ID
-            db_session: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
 
         Returns:
@@ -321,7 +310,7 @@ class CrawlService(BaseService):
             }
 
         # 강의 목록 가져오기
-        courses = await self.course_service.get_courses(user_id, db_session, force_refresh=True)
+        courses = await self.course_service.get_courses(user_id, force_refresh=True)
 
         if not courses:
             logger.warning("크롤링할 강의가 없습니다.")
@@ -334,7 +323,7 @@ class CrawlService(BaseService):
 
         # 작업 시작
         task = asyncio.create_task(
-            self._crawl_all_courses_task(user_id, courses, db_session, auto_download, task_id)
+            self._crawl_all_courses_task(user_id, courses, auto_download, task_id)
         )
 
         # 작업 관리
@@ -354,7 +343,7 @@ class CrawlService(BaseService):
             "courses": [course.name for course in courses]
         }
 
-    async def _crawl_all_courses_task(self, user_id: str, courses: List[Any], db_session: AsyncSession,
+    async def _crawl_all_courses_task(self, user_id: str, courses: List[Any],
                                       auto_download: bool, task_id: str) -> Dict[str, Any]:
         """
         모든 강의 크롤링 작업 수행
@@ -362,7 +351,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             courses: 강의 목록
-            db_session: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
             task_id: 작업 ID
 
@@ -399,7 +387,7 @@ class CrawlService(BaseService):
 
                     # 개별 강의 크롤링
                     course_result = await self.crawl_course(
-                        user_id, course_id, db_session, auto_download, f"{task_id}_{course_id}"
+                        user_id, course_id, auto_download, f"{task_id}_{course_id}"
                     )
 
                     # 결과 저장
@@ -459,7 +447,7 @@ class CrawlService(BaseService):
                 "timestamp": datetime.now().isoformat()
             }
 
-    async def crawl_course(self, user_id: str, course_id: str, db_session: AsyncSession,
+    async def crawl_course(self, user_id: str, course_id: str,
                            auto_download: bool = False, task_id: str = None) -> Dict[str, Any]:
         """
         특정 강의 크롤링 작업 시작
@@ -467,7 +455,6 @@ class CrawlService(BaseService):
         Args:
             user_id: 사용자 ID
             course_id: 강의 ID
-            db_session: 데이터베이스 세션
             auto_download: 첨부파일 자동 다운로드 여부
             task_id: 작업 ID (지정하지 않으면 새로 생성)
 
@@ -492,7 +479,7 @@ class CrawlService(BaseService):
             }
 
         # 코스 정보 확인
-        course = await self.course_service.get_course(user_id, course_id, db_session)
+        course = await self.course_service.get_course(user_id, course_id)
         if not course:
             logger.error(f"강의 정보 없음: {course_id}")
             return {
@@ -504,7 +491,7 @@ class CrawlService(BaseService):
 
         # 작업 시작
         task = asyncio.create_task(
-            self._crawl_course_task(user_id, course_id, db_session, auto_download, task_id)
+            self._crawl_course_task(user_id, course_id, auto_download, task_id)
         )
 
         # 작업 관리
@@ -525,7 +512,7 @@ class CrawlService(BaseService):
             "course_name": course.name
         }
 
-    async def _crawl_course_task(self, user_id: str, course_id: str, db_session: AsyncSession,
+    async def _crawl_course_task(self, user_id: str, course_id: str,
                                  auto_download: bool, task_id: str) -> Dict[str, Any]:
         """
         강의 크롤링 작업 수행
@@ -562,7 +549,7 @@ class CrawlService(BaseService):
 
             # 1. 강의계획서 크롤링
             try:
-                syllabus_result = await self.crawl_syllabus(user_id, course_id, db_session)
+                syllabus_result = await self.crawl_syllabus(user_id, course_id)
                 result["details"]["syllabus"] = syllabus_result
             except Exception as e:
                 logger.error(f"강의계획서 크롤링 중 오류: {str(e)}")
@@ -570,7 +557,7 @@ class CrawlService(BaseService):
 
             # 2. 공지사항 크롤링
             try:
-                notice_result = await self.crawl_notices(user_id, course_id, db_session, auto_download)
+                notice_result = await self.crawl_notices(user_id, course_id, auto_download)
                 result["details"]["notices"] = notice_result
             except Exception as e:
                 logger.error(f"공지사항 크롤링 중 오류: {str(e)}")
@@ -578,7 +565,7 @@ class CrawlService(BaseService):
 
             # 3. 강의자료 크롤링
             try:
-                material_result = await self.crawl_materials(user_id, course_id, db_session, auto_download)
+                material_result = await self.crawl_materials(user_id, course_id, auto_download)
                 result["details"]["materials"] = material_result
             except Exception as e:
                 logger.error(f"강의자료 크롤링 중 오류: {str(e)}")
@@ -586,7 +573,7 @@ class CrawlService(BaseService):
 
             # 4. 과제 크롤링
             try:
-                assignment_result = await self.crawl_assignments(user_id, course_id, db_session, auto_download)
+                assignment_result = await self.crawl_assignments(user_id, course_id, auto_download)
                 result["details"]["assignments"] = assignment_result
             except Exception as e:
                 logger.error(f"과제 크롤링 중 오류: {str(e)}")

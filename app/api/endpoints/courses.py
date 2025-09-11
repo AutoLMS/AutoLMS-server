@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.course import Course, CourseList
 from app.api.deps import (
     get_current_user,
-    get_db_session,
     get_course_service,
     get_notice_service,
     get_material_service,
@@ -22,7 +21,6 @@ router = APIRouter()
 
 @router.get("/", response_model=CourseList)
 async def get_courses(
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100,
@@ -38,12 +36,11 @@ async def get_courses(
 @router.get("/refresh", response_model=CourseList)
 async def refresh_courses(
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
     """강의 목록 새로고침"""
-    courses = await course_service.get_courses(current_user["id"], db, force_refresh=True)
+    courses = await course_service.get_courses(current_user["id"], force_refresh=True)
     return {
         "courses": courses,
         "total": len(courses),
@@ -53,7 +50,6 @@ async def refresh_courses(
 @router.get("/sync", response_model=dict)
 async def sync_course(
     course_id: str,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service),
     notice_service: NoticeService = Depends(get_notice_service),
@@ -74,10 +70,10 @@ async def sync_course(
     result = {
         "course_id": course_id,
         "course_name": course.name,
-        "notices": await notice_service.refresh_all(db, course_id, current_user["id"], auto_download=True),
-        "materials": await material_service.refresh_all(db, course_id, current_user["id"], auto_download=True),
-        "assignments": await assignment_service.refresh_all(db, course_id, current_user["id"], auto_download=True),
-        "syllabus": await syllabus_service.refresh_all(db, course_id, current_user["id"]),
+        "notices": await notice_service.refresh_all(course_id, current_user["id"], auto_download=True),
+        "materials": await material_service.refresh_all(course_id, current_user["id"], auto_download=True),
+        "assignments": await assignment_service.refresh_all(course_id, current_user["id"], auto_download=True),
+        "syllabus": await syllabus_service.refresh_all(course_id, current_user["id"]),
     }
 
     return result
@@ -85,7 +81,6 @@ async def sync_course(
 @router.get("/{course_id}", response_model=Course)
 async def get_course(
     course_id: str,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
@@ -97,13 +92,3 @@ async def get_course(
             detail="강의를 찾을 수 없습니다."
         )
     return course
-
-@router.get("/{course_id}/menus")
-async def get_course_menus(
-    course_id: str,
-    current_user: dict = Depends(get_current_user),
-    course_service: CourseService = Depends(get_course_service)
-) -> Any:
-    """특정 강의의 메뉴 목록 조회"""
-    menus = await course_service.get_course_menus(current_user["id"], course_id)
-    return menus

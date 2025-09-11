@@ -236,27 +236,16 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     auth_session_service: AuthSessionService = Depends(get_auth_session_service)
 ):
-    """현재 로그인한 사용자 확인 - 디버깅 포함"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    logger.info(">>> get_current_user 호출")
-    logger.info(f"토큰 수신: {'있음' if token else '없음'}")
-    if token:
-        logger.info(f"토큰 길이: {len(token)}, 시작: {token[:20]}...")
-    
+    """현재 로그인한 사용자 확인"""
     user_info = await auth_session_service.verify_token(token)
-    logger.info(f"verify_token 결과: {'성공' if user_info else '실패'}")
     
     if not user_info:
-        logger.warning("get_current_user에서 401 에러 발생")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 인증 정보",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    logger.info(f"get_current_user 성공: {user_info.get('id', '알수없음')}")
     return user_info
 
 # Supabase 기반 데이터베이스 - 세션 의존성 불필요

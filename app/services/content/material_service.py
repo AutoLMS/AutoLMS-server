@@ -1,20 +1,17 @@
 import logging
 from typing import Dict, Any, List
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.services.auth_service import AuthService
-from app.services.content.content_service import ContentService
+from app.services.base_service import BaseService
 from app.services.session import EclassSessionManager
 from app.services.parsers.material_parser import MaterialParser
 from app.services.storage.storage_service import StorageService
 from app.db.repositories.material_repository import MaterialRepository
 from app.db.repositories.attachment_repository import AttachmentRepository
-from app.models.material import Material
 
 logger = logging.getLogger(__name__)
 
-class MaterialService(ContentService[Material, MaterialParser, MaterialRepository]):
+class MaterialService(BaseService):
     """강의자료 서비스"""
     def __init__(
             self,
@@ -39,7 +36,6 @@ class MaterialService(ContentService[Material, MaterialParser, MaterialRepositor
 
     async def refresh_all(
         self, 
-        db: AsyncSession, 
         course_id: str, 
         user_id: str, 
         auto_download: bool = False
@@ -166,7 +162,7 @@ class MaterialService(ContentService[Material, MaterialParser, MaterialRepositor
 
     async def _process_attachments(
             self,
-            db: AsyncSession,
+            user_id: str,
             eclass_session,
             attachments: List[Dict[str, Any]],
             source_id: int,

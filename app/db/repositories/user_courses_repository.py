@@ -11,11 +11,9 @@ class UserCoursesRepository:
         if use_service_key:
             # Service Key 사용 (RLS 우회)
             self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
-            print("🐛 DEBUG: UserCourses Repository - Service Key 클라이언트 사용")
         else:
             # 일반 클라이언트
             self.supabase: Client = get_supabase_client()
-            print("🐛 DEBUG: UserCourses Repository - 일반 클라이언트 사용")
         self.table_name = "user_courses"
     
     async def get_user_courses(self, user_id: str) -> List[Dict[str, Any]]:

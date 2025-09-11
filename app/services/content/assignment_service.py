@@ -1,19 +1,18 @@
 import logging
 from typing import List, Dict, Any, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy removed
 
-from app.services.content.content_service import ContentService
+from app.services.base_service import BaseService
 from app.services.session import EclassSessionManager
 from app.services.parsers.assignment_parser import AssignmentParser
 from app.services.storage.storage_service import StorageService
 from app.db.repositories.assignment_repository import AssignmentRepository
 from app.db.repositories.attachment_repository import AttachmentRepository
-from app.models.assignment import Assignment
 
 logger = logging.getLogger(__name__)
 
-class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentRepository]):
+class AssignmentService(BaseService):
     """과제 서비스"""
     
     def __init__(
@@ -22,18 +21,27 @@ class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentR
         assignment_parser: AssignmentParser,
         assignment_repository: AssignmentRepository,
         attachment_repository: AttachmentRepository,
+        storage_service: StorageService
     ):
-        super().__init__(
-            session_service,
-            assignment_parser,
-            assignment_repository,
-            content_type="Assignment"
-        )
+        self.session_service = session_service
+        self.parser = assignment_parser
+        self.repository = assignment_repository
         self.attachment_repository = attachment_repository
-        self.storage = StorageService()
+        self.storage_service = storage_service
+        logger.info("AssignmentService 초기화 완료")
+    
+    async def initialize(self) -> None:
+        """서비스 초기화"""
+        logger.info("AssignmentService 시작")
+        pass
+
+    async def close(self) -> None:
+        """서비스 리소스 정리"""
+        logger.info("AssignmentService 종료")
+        pass
 
 
-    async def get_assignments(self, user_id: str, course_id: str, db: AsyncSession) -> List[Assignment]:
+    async def get_assignments(self, user_id: str, course_id: str) -> List[Dict[str, Any]]:
         """
         특정 강의의 과제 목록 조회
         
@@ -71,7 +79,7 @@ class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentR
             logger.error(f"과제 조회 중 오류: {str(e)}")
             return []
     
-    async def get_assignment(self, user_id: str, course_id: str, assignment_id: str, db: AsyncSession) -> Optional[Assignment]:
+    async def get_assignment(self, user_id: str, course_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
         """
         특정 과제 조회
         
@@ -124,7 +132,6 @@ class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentR
     
     async def refresh_all(
         self, 
-        db: AsyncSession, 
         course_id: str, 
         user_id: str, 
         auto_download: bool = False
@@ -244,7 +251,7 @@ class AssignmentService(ContentService[Assignment, AssignmentParser, AssignmentR
 
     async def _process_attachments(
             self,
-            db: AsyncSession,
+            user_id: str,
             eclass_session,
             attachments: List[Dict[str, Any]],
             source_id: int,

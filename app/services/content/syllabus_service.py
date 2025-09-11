@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy removed
 
 from app.services.base_service import BaseService
 from app.services.session.eclass_session_manager import EclassSessionManager
@@ -41,7 +41,6 @@ class SyllabusService(BaseService):
         self, 
         user_id: str, 
         course_id: str, 
-        db: AsyncSession, 
         force_refresh: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
@@ -117,7 +116,7 @@ class SyllabusService(BaseService):
             logger.error(f"강의계획서 조회 중 오류 발생: {str(e)}")
             return None
     
-    async def refresh_syllabus(self, user_id: str, course_id: str, db: AsyncSession) -> Dict[str, Any]:
+    async def refresh_syllabus(self, user_id: str, course_id: str) -> Dict[str, Any]:
         """
         강의계획서 새로고침
         
@@ -147,7 +146,7 @@ class SyllabusService(BaseService):
         
         return result
         
-    async def refresh_all(self, db: AsyncSession, course_id: str, user_id: str) -> Dict[str, Any]:
+    async def refresh_all(self, user_id: str, course_id: str) -> Dict[str, Any]:
         """
         강의계획서 새로고침 (다른 서비스와 형식 통일)
         

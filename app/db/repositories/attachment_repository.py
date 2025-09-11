@@ -10,11 +10,9 @@ class AttachmentRepository:
         if use_service_key:
             # Service Key 사용 (RLS 우회)
             self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
-            print("🐛 DEBUG: Attachment Repository - Service Key 클라이언트 사용")
         else:
             # 일반 클라이언트
             self.supabase: Client = get_supabase_client()
-            print("🐛 DEBUG: Attachment Repository - 일반 클라이언트 사용")
         self.table_name = "attachments"
     
     async def get_by_source(self, source_id: str, source_type: str) -> List[Dict[str, Any]]:

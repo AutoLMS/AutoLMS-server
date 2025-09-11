@@ -10,11 +10,9 @@ class NoticeRepository:
         if use_service_key:
             # Service Key 사용 (RLS 우회)
             self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
-            print("🐛 DEBUG: Notice Repository - Service Key 클라이언트 사용")
         else:
             # 일반 클라이언트
             self.supabase: Client = get_supabase_client()
-            print("🐛 DEBUG: Notice Repository - 일반 클라이언트 사용")
         self.table_name = "notices"
     
     async def get_by_course_id(self, course_id: str) -> List[Dict[str, Any]]:
