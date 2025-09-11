@@ -10,8 +10,6 @@ from datetime import datetime
 from app.core.config import settings
 from app.core.supabase_client import get_supabase_client
 from app.utils.encryption import encrypt_eclass_password, decrypt_eclass_password, is_encrypted
-from app.db.repositories.user_repository import UserRepository
-from app.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +18,6 @@ class AuthService:
 
     def __init__(self, supabase_client=None):
         self.supabase = supabase_client or get_supabase_client()
-        self.user_repository = UserRepository()
 
     # app/services/auth_service.py
 
@@ -166,9 +163,6 @@ class AuthService:
                 
                 # 이클래스 비밀번호 업데이트 (암호화된 상태로)
                 await self._update_eclass_password(user_id, eclass_password)
-                
-                # 로컬 데이터베이스에 사용자 정보 동기화
-                await self.sync_user_to_local_db(user_id, eclass_username, auth_response.user.email)
                 
                 # Supabase JWT 토큰 반환
                 result = {
@@ -400,39 +394,3 @@ class AuthService:
             logger.error(f"이클래스 비밀번호 업데이트 중 오류: {str(e)}")
             # 비밀번호 업데이트 실패는 로그인 실패로 처리하지 않음
 
-    async def sync_user_to_local_db(self, user_id: str, eclass_username: str, email: str = None) -> None:
-        """
-        Supabase에서 로컬 데이터베이스로 사용자 정보 동기화
-        
-        Args:
-            user_id: Supabase 사용자 ID
-            eclass_username: e-Class 사용자명
-            email: 이메일 주소
-        """
-        try:
-            async with AsyncSessionLocal() as db:
-                # 기존 사용자 확인
-                existing_user = await self.user_repository.get_by_id(db, user_id)
-                
-                if existing_user:
-                    # 기존 사용자 정보 업데이트
-                    await self.user_repository.update(
-                        db, 
-                        existing_user,
-                        eclass_username=eclass_username,
-                        email=email
-                    )
-                    logger.info(f"기존 사용자 정보 업데이트: {user_id}")
-                else:
-                    # 새 사용자 생성
-                    await self.user_repository.create(
-                        db,
-                        id=user_id,
-                        eclass_username=eclass_username,
-                        email=email
-                    )
-                    logger.info(f"새 사용자 생성: {user_id}")
-                    
-        except Exception as e:
-            logger.error(f"사용자 로컬 DB 동기화 중 오류: {str(e)}")
-            # 동기화 실패는 인증 실패로 처리하지 않음

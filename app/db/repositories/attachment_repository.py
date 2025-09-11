@@ -1,50 +1,32 @@
-from typing import List, Dict, Any, Optional, Sequence
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from typing import List, Dict, Any
+from supabase import Client, create_client
+from app.core.supabase_client import get_supabase_client
+from app.core.config import settings
 
-from app.db.repositories.base import BaseRepository
-from app.models.attachment import Attachment
-
-class AttachmentRepository(BaseRepository[Attachment]):
-    """첨부파일 리포지토리"""
+class AttachmentRepository:
+    """Supabase를 사용한 첨부파일 저장소"""
     
-    def __init__(self):
-        super().__init__(Attachment)
+    def __init__(self, use_service_key: bool = False):
+        if use_service_key:
+            # Service Key 사용 (RLS 우회)
+            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            print("🐛 DEBUG: Attachment Repository - Service Key 클라이언트 사용")
+        else:
+            # 일반 클라이언트
+            self.supabase: Client = get_supabase_client()
+            print("🐛 DEBUG: Attachment Repository - 일반 클라이언트 사용")
+        self.table_name = "attachments"
     
-    async def get_by_source(self, db: AsyncSession, source_id: Any, source_type: str) -> Sequence[Any]:
-        """
-        소스별 첨부파일 목록 조회
-        반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
-        
-        Args:
-            db: 데이터베이스 세션
-            source_id: 소스 ID (공지사항, 과제, 자료 등의 ID)
-            source_type: 소스 타입 ('notices', 'assignments', 'materials' 등)
-        """
-        query = select(self.model).where(
-            self.model.source_type == source_type,
-            self.model.source_id == str(source_id)  # source_id를 문자열로 변환
-        )
-        result = await db.execute(query)
-        return result.scalars().all()
-    
-    async def get_by_user_id(self, db: AsyncSession, user_id: str) -> Sequence[Any]:
-        """
-        사용자별 첨부파일 목록 조회
-        반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
-        """
-        query = select(self.model).where(self.model.user_id == user_id)
-        result = await db.execute(query)
-        return result.scalars().all()
-    
-    async def search(self, db: AsyncSession, user_id: str, query: str) -> Sequence[Any]:
-        """
-        첨부파일 검색
-        반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
-        """
-        stmt = select(self.model).where(
-            self.model.user_id == user_id,
-            self.model.file_name.like(f"%{query}%")
-        )
-        result = await db.execute(stmt)
-        return result.scalars().all()
+    async def get_by_source(self, source_id: str, source_type: str) -> List[Dict[str, Any]]:
+        """소스 ID와 타입으로 첨부파일 조회"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .select("*")\
+                .eq("source_id", source_id)\
+                .eq("source_type", source_type)\
+                .execute()
+            
+            return result.data
+        except Exception as e:
+            print(f"첨부파일 조회 오류: {e}")
+            return []

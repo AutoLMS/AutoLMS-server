@@ -3,7 +3,7 @@ from supabase import Client
 
 from app.core.supabase_client import get_supabase_client
 
-class SupabaseBaseRepository:
+class BaseRepository:
     """Supabase를 사용한 기본 저장소 클래스"""
     
     def __init__(self, table_name: str):

@@ -4,8 +4,8 @@ from supabase import Client, create_client
 from app.core.supabase_client import get_supabase_client
 from app.core.config import settings
 
-class SupabaseUserCoursesRepository:
-    """Supabase를 사용한 사용자-강의 매핑 저장소"""
+class UserCoursesRepository:
+    """사용자-강의 매핑 저장소"""
     
     def __init__(self, use_service_key: bool = False):
         if use_service_key:

@@ -1,47 +1,47 @@
-from typing import List, Dict, Any, Optional, Sequence
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Dict, Any
+from supabase import Client, create_client
+from app.core.supabase_client import get_supabase_client
+from app.core.config import settings
 
-from app.db.repositories.base import BaseRepository
-from app.models.material import Material
-
-class MaterialRepository(BaseRepository[Material]):
-    """강의자료 리포지토리"""
+class MaterialRepository:
+    """Supabase를 사용한 학습자료 저장소"""
     
-    def __init__(self):
-        super().__init__(Material)
+    def __init__(self, use_service_key: bool = False):
+        if use_service_key:
+            # Service Key 사용 (RLS 우회)
+            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            print("🐛 DEBUG: Material Repository - Service Key 클라이언트 사용")
+        else:
+            # 일반 클라이언트
+            self.supabase: Client = get_supabase_client()
+            print("🐛 DEBUG: Material Repository - 일반 클라이언트 사용")
+        self.table_name = "materials"
     
-    async def get_by_course_id(self, db: AsyncSession, course_id: str) -> Sequence[Material]:
-        """
-        강의 ID로 강의자료 목록 조회
-        반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
-        """
-        query = select(self.model).where(self.model.course_id == course_id).order_by(self.model.date.desc())
-        result = await db.execute(query)
-        return result.scalars().all()
+    async def get_by_course_id(self, course_id: str) -> List[Dict[str, Any]]:
+        """강의 ID로 강의자료 조회"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .select("*")\
+                .eq("course_id", course_id)\
+                .order("created_at", desc=True)\
+                .execute()
+            
+            return result.data
+        except Exception as e:
+            print(f"강의자료 조회 오류: {e}")
+            return []
     
-    async def get_by_article_id(
-        self, db: AsyncSession, course_id: str, article_id: str
-    ) -> Optional[Material]:
-        """
-        게시글 ID로 강의자료 조회
-        반환값: 데이터베이스 모델 객체 또는 None (스키마로 변환 필요)
-        """
-        query = select(self.model).where(
-            self.model.course_id == course_id,
-            self.model.article_id == article_id
-        )
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
-    
-    async def exists(self, db: AsyncSession, course_id: str, article_id: str) -> bool:
-        """
-        강의자료 존재 여부 확인
-        반환값: 불리언 값 (True/False)
-        """
-        query = select(self.model).where(
-            self.model.course_id == course_id,
-            self.model.article_id == article_id
-        )
-        result = await db.execute(query)
-        return result.scalar_one_or_none() is not None
+    async def get_by_course_and_user(self, course_id: str, user_id: str) -> List[Dict[str, Any]]:
+        """강의 ID와 사용자 ID로 학습자료 조회"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .select("*")\
+                .eq("course_id", course_id)\
+                .eq("user_id", user_id)\
+                .order("created_at", desc=True)\
+                .execute()
+            
+            return result.data
+        except Exception as e:
+            print(f"학습자료 조회 오류: {e}")
+            return []

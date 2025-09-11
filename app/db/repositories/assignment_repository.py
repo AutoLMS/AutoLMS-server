@@ -1,56 +1,47 @@
-from typing import List, Dict, Any, Optional, Sequence
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from datetime import datetime, timedelta
+from typing import List, Dict, Any
+from supabase import Client, create_client
+from app.core.supabase_client import get_supabase_client
+from app.core.config import settings
 
-from app.db.repositories.base import BaseRepository
-from app.models.assignment import Assignment
-
-
-class AssignmentRepository(BaseRepository[Assignment]):
-    """과제 리포지토리"""
-
-    def __init__(self):
-        super().__init__(Assignment)
-
-    async def get_by_course_id(self, db: AsyncSession, course_id: str) -> Sequence[Any]:
-        """
-        강의 ID로 과제 목록 조회
-        반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
-        """
-        query = select(self.model).where(
-            self.model.course_id == course_id
-        ).order_by(self.model.due_date.asc())
-
-        result = await db.execute(query)
-        return result.scalars().all()
-
-    async def get_by_article_id(self, db: AsyncSession, course_id: str, article_id: str) -> Optional[Any]:
-        """
-        게시글 ID로 과제 조회
-        반환값: 데이터베이스 모델 객체 또는 None (스키마로 변환 필요)
-        """
-        query = select(self.model).where(
-            self.model.course_id == course_id,
-            self.model.article_id == article_id
-        )
-
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
-
-    async def get_upcoming(self, db: AsyncSession, course_id: str) -> Sequence[Any]:
-        """
-        마감이 임박한 과제 조회
-        반환값: 데이터베이스 모델 객체 목록 (스키마로 변환 필요)
-        """
-        now = datetime.now()
-        future = now + timedelta(days=7)  # 1주일 내 마감
-
-        query = select(self.model).where(
-            self.model.course_id == course_id,
-            self.model.due_date >= now.strftime("%Y-%m-%d"),
-            self.model.due_date <= future.strftime("%Y-%m-%d")
-        ).order_by(self.model.due_date.asc())
-
-        result = await db.execute(query)
-        return result.scalars().all()
+class AssignmentRepository:
+    """Supabase를 사용한 과제 저장소"""
+    
+    def __init__(self, use_service_key: bool = False):
+        if use_service_key:
+            # Service Key 사용 (RLS 우회)
+            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            print("🐛 DEBUG: Assignment Repository - Service Key 클라이언트 사용")
+        else:
+            # 일반 클라이언트
+            self.supabase: Client = get_supabase_client()
+            print("🐛 DEBUG: Assignment Repository - 일반 클라이언트 사용")
+        self.table_name = "assignments"
+    
+    async def get_by_course_id(self, course_id: str) -> List[Dict[str, Any]]:
+        """강의 ID로 과제 조회"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .select("*")\
+                .eq("course_id", course_id)\
+                .order("created_at", desc=True)\
+                .execute()
+            
+            return result.data
+        except Exception as e:
+            print(f"과제 조회 오류: {e}")
+            return []
+    
+    async def get_by_course_and_user(self, course_id: str, user_id: str) -> List[Dict[str, Any]]:
+        """강의 ID와 사용자 ID로 과제 조회"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .select("*")\
+                .eq("course_id", course_id)\
+                .eq("user_id", user_id)\
+                .order("created_at", desc=True)\
+                .execute()
+            
+            return result.data
+        except Exception as e:
+            print(f"과제 조회 오류: {e}")
+            return []
