@@ -2,6 +2,10 @@
 
 ## 🔧 Development Guidelines
 
+### Branch Management Rules
+- **Phase별 브랜치 분리**: 각 Phase 완료 후 반드시 커밋하고 새로운 브랜치 생성
+- **브랜치 네이밍**: `feature/phase-description` 형태 사용
+- **커밋 규칙**: Phase 완료 시점에 의미있는 단위로 커밋
 - "필요하다고 생각하면 브랜치를 새로파서 진행해야 합니다."
 
 ## 📝 Documentation Rules

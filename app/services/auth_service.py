@@ -62,8 +62,8 @@ class AuthService:
                     user_data = {
                         'id': user_id,
                         'eclass_username': eclass_username,
-                        'encrypted_session_token': '',
-                        'encrypted_eclass_password': encrypted_eclass_password,
+                        'encrypted_eclass_password': encrypted_eclass_password,  # 이클래스 로그인 비밀번호
+                        'encrypted_session_token': None,  # 자동로그인용 세션 토큰 (추후 구현)
                         'created_at': datetime.now().isoformat()
                     }
 
@@ -332,7 +332,7 @@ class AuthService:
         """사용자의 이클래스 계정 정보 조회 (Supabase에서)"""
         try:
             # Supabase users 테이블에서 사용자 조회
-            user_response = self.supabase.table('users').select('eclass_username, encrypted_session_token').eq('id', user_id).execute()
+            user_response = self.supabase.table('users').select('eclass_username, encrypted_eclass_password').eq('id', user_id).execute()
             
             if not user_response.data or len(user_response.data) == 0:
                 logger.error(f"사용자 {user_id}를 찾을 수 없음")
@@ -340,12 +340,12 @@ class AuthService:
 
             user_data = user_response.data[0]
             
-            if not user_data.get('eclass_username') or not user_data.get('encrypted_session_token'):
+            if not user_data.get('eclass_username') or not user_data.get('encrypted_eclass_password'):
                 logger.error(f"사용자 {user_id}의 이클래스 계정 정보가 없음")
                 return None
 
             # 비밀번호 복호화
-            eclass_password = user_data['encrypted_session_token']
+            eclass_password = user_data['encrypted_eclass_password']
             if is_encrypted(eclass_password):
                 try:
                     decrypted_password = decrypt_eclass_password(eclass_password)
@@ -369,10 +369,10 @@ class AuthService:
         """이클래스 비밀번호를 암호화하여 업데이트"""
         try:
             # 현재 저장된 비밀번호 확인
-            user_response = self.supabase.table('users').select('encrypted_session_token').eq('id', user_id).execute()
+            user_response = self.supabase.table('users').select('encrypted_eclass_password').eq('id', user_id).execute()
             
             if user_response.data and len(user_response.data) > 0:
-                stored_password = user_response.data[0].get('encrypted_session_token', '')
+                stored_password = user_response.data[0].get('encrypted_eclass_password', '')
                 
                 # 이미 암호화된 상태이고 복호화했을 때 같은 비밀번호인 경우 스킵
                 if is_encrypted(stored_password):
@@ -386,7 +386,7 @@ class AuthService:
                 # 비밀번호 암호화하여 업데이트
                 encrypted_password = encrypt_eclass_password(eclass_password)
                 self.supabase.table('users').update({
-                    'encrypted_session_token': encrypted_password
+                    'encrypted_eclass_password': encrypted_password
                 }).eq('id', user_id).execute()
                 
                 logger.debug(f"사용자 {user_id}의 이클래스 비밀번호 업데이트 완료")
