@@ -39,13 +39,12 @@ class CourseParser(ContentParser):
                     time_elem = element.find('span')
                     course_time = time_elem.text.strip() if time_elem else ''
                     
-                    # 결과 추가
+                    # 결과 추가 - 테이블 스키마에 맞게 필드명 수정
                     if course_id and course_name:
                         courses.append({
-                            'id': course_id,
-                            'name': course_name,
-                            'code': course_code,
-                            'time': course_time
+                            'course_id': course_id,  # 테이블의 course_id 컬럼에 매핑
+                            'course_name': course_name,  # 테이블의 course_name 컬럼에 매핑
+                            'description': f"강의코드: {course_code}, 시간: {course_time}" if course_code or course_time else None
                         })
                 except Exception as e:
                     logger.error(f"강의 요소 파싱 중 오류 발생: {e}")

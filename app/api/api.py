@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, courses, notices, materials, assignments, attachments, crawl, syllabus
+from app.api.endpoints import auth, courses, notices, materials, assignments, attachments, crawl, syllabus, scheduler
 from datetime import datetime
 
 api_router = APIRouter()
@@ -32,3 +32,6 @@ api_router.include_router(attachments.router, prefix="/attachments", tags=["첨�
 
 # 강의계획서 관련 엔드포인트
 api_router.include_router(syllabus.router, prefix="/courses/{course_id}/syllabus", tags=["강의계획서"])
+
+# 스케줄러 관련 엔드포인트
+api_router.include_router(scheduler.router, prefix="/scheduler", tags=["스케줄러"])

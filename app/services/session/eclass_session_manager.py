@@ -98,7 +98,7 @@ class EclassSessionManager(BaseService):
 
     async def _get_user_eclass_credentials(self, user_id: str) -> Optional[Dict[str, str]]:
         """
-        사용자의 이클래스 계정 정보 조회
+        사용자의 이클래스 계정 정보 조회 및 복호화
 
         Args:
             user_id: 사용자 ID
@@ -107,18 +107,20 @@ class EclassSessionManager(BaseService):
             Optional[Dict[str, str]]: 이클래스 계정 정보 또는 None
         """
         try:
-            # Supabase에서 사용자 정보 조회
+            # AuthService를 사용하여 암호화된 계정 정보 조회
+            from app.services.auth_service import AuthService
             from app.core.supabase_client import get_supabase_client
 
-            supabase = get_supabase_client()
-            response = supabase.table('users').select('eclass_username, eclass_password').eq('id', user_id).execute()
-
-            if response.data and len(response.data) > 0:
-                user_data = response.data[0]
+            auth_service = AuthService(get_supabase_client())
+            credentials = await auth_service.get_user_eclass_credentials(user_id)
+            
+            if credentials:
                 return {
-                    "username": user_data["eclass_username"],
-                    "password": user_data["eclass_password"]  # 실제로는 복호화 필요
+                    "username": credentials["username"],
+                    "password": credentials["password"]  # AuthService에서 이미 복호화됨
                 }
+            
+            return None
 
         except Exception as e:
             logger.error(f"이클래스 계정 정보 조회 중 오류: {str(e)}")

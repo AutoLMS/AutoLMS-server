@@ -4,12 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import sys
 import socket
-from contextlib import closing
+from contextlib import closing, asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.api.api import api_router
+from app.services.scheduler_service import scheduler_service
+from app.services.auto_refresh_service import auto_refresh_service
 
 # 로깅 설정
 logging.basicConfig(
@@ -25,13 +27,50 @@ logging.basicConfig(
 logging.getLogger('app.core.parsers.eclass_parser').setLevel(logging.DEBUG)
 logging.getLogger('app.services').setLevel(logging.DEBUG)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """애플리케이션 라이프사이클 관리"""
+    # 시작 시
+    logger.info("AutoLMS 애플리케이션 시작")
+    
+    try:
+        # 자동 새로고침 서비스 초기화
+        await auto_refresh_service.initialize()
+        logger.info("자동 새로고침 서비스 초기화 완료")
+        
+        # 백그라운드 스케줄러 시작
+        await scheduler_service.start()
+        logger.info("백그라운드 스케줄러 시작 완료")
+        
+    except Exception as e:
+        logger.error(f"서비스 초기화 중 오류: {str(e)}")
+    
+    yield  # 애플리케이션 실행
+    
+    # 종료 시
+    logger.info("AutoLMS 애플리케이션 종료 시작")
+    
+    try:
+        # 백그라운드 스케줄러 정지
+        await scheduler_service.stop()
+        logger.info("백그라운드 스케줄러 정지 완료")
+        
+        # 기타 리소스 정리
+        logger.info("리소스 정리 완료")
+        
+    except Exception as e:
+        logger.error(f"서비스 종료 중 오류: {str(e)}")
+    
+    logger.info("AutoLMS 애플리케이션 종료 완료")
+
 def create_app() -> FastAPI:
     """FastAPI 애플리케이션 생성"""
     app = FastAPI(
         title="AutoLMS",
         description="서울과학기술대학교 e-Class 자동화 시스템",
         version="1.0.0",
-        openapi_url=f"{settings.API_V1_STR}/openapi.json"
+        openapi_url=f"{settings.API_V1_STR}/openapi.json",
+        lifespan=lifespan  # 라이프사이클 관리 추가
     )
 
     # CORS 설정

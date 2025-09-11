@@ -23,7 +23,13 @@ async def get_courses(
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
-    """모든 강의 목록 조회"""
+    """
+    사용자의 모든 강의 목록 조회 (스마트 자동 크롤링 포함)
+    
+    - 기존에 저장된 강의 목록을 우선적으로 반환
+    - 신규 사용자이거나 강의 목록이 비어있는 경우 자동으로 이클래스에서 크롤링
+    - 빠른 응답을 위해 캐시된 데이터를 활용
+    """
     courses = await course_service.get_courses(user_id=current_user["id"])
     return {
         "courses": courses,
@@ -35,8 +41,14 @@ async def refresh_courses(
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
-    """강의 목록 새로고침"""
-    courses = await course_service.get_courses(user_id=current_user["id"])
+    """
+    이클래스에서 최신 강의 목록을 가져와 데이터베이스 동기화
+    
+    - 이클래스 웹사이트에서 실시간으로 강의 목록을 크롤링
+    - 새로운 강의는 추가하고 기존 강의는 업데이트
+    - 신규 사용자의 경우 최초 강의 목록 수집에 사용
+    """
+    courses = await course_service.refresh_courses(user_id=current_user["id"])
     return {
         "courses": courses,
         "total": len(courses),

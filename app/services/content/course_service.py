@@ -33,34 +33,57 @@ class CourseService(BaseService):
         logger.info("CourseService 종료")
         pass
 
-    async def get_courses(self, user_id: str) -> List[Dict[str, Any]]:
+    async def get_courses(self, user_id: str, blank_auto_fetch: bool = True) -> List[Dict[str, Any]]:
         """
-        데이터베이스에서 사용자의 기존 강의 목록 조회 (단순 조회만 담당)
+        사용자의 강의 목록 조회 (필요시 자동 크롤링 포함)
         
         Args:
             user_id: 사용자 ID
+            blank_auto_fetch: 빈 목록일 때 자동으로 초기 크롤링 수행 여부
             
         Returns:
-            기존에 저장된 강의 목록
+            강의 목록 (필요시 새로 크롤링된 목록 포함)
         """
         try:
-            logger.info(f"사용자 {user_id}의 기존 강의 목록 조회")
+            logger.info(f"사용자 {user_id}의 강의 목록 조회 시작")
             existing_courses = await self.repository.get_by_user_id(user_id)
-            logger.info(f"기존 강의 목록 반환: {len(existing_courses)}개")
+            
+            # 빈 목록이고 auto_fetch가 활성화된 경우 초기 크롤링 수행
+            if not existing_courses and blank_auto_fetch:
+                logger.info(f"사용자 {user_id}의 강의 목록이 비어있음 - 초기 크롤링 시작")
+                try:
+                    fetched_courses = await self.refresh_courses(user_id)
+                    if fetched_courses:
+                        logger.info(f"초기 크롤링 완료: {len(fetched_courses)}개 강의 발견")
+                        return fetched_courses
+                    else:
+                        logger.warning("초기 크롤링을 수행했으나 강의를 찾을 수 없음")
+                except Exception as fetch_error:
+                    logger.error(f"초기 크롤링 중 오류 발생: {str(fetch_error)}")
+                    # 크롤링 실패시 빈 배열 반환
+                
+            logger.info(f"강의 목록 반환: {len(existing_courses)}개")
             return existing_courses
+            
         except Exception as e:
             logger.error(f"강의 목록 조회 중 오류 발생: {str(e)}")
             return []
 
     async def refresh_courses(self, user_id: str) -> List[Dict[str, Any]]:
         """
-        이클래스에서 새 강의 목록을 가져와 파싱하고 저장 (크롤링/파싱/저장 담당)
+        이클래스에서 강의 목록을 실시간으로 가져와서 데이터베이스에 동기화
+        
+        주요 기능:
+        - 이클래스 로그인 및 강의 목록 페이지 크롤링
+        - HTML 파싱을 통한 강의 정보 추출  
+        - 데이터베이스에 강의 정보 저장/업데이트
+        - 사용자-강의 등록 관계 설정
         
         Args:
             user_id: 사용자 ID
             
         Returns:
-            새로 가져온 강의 목록
+            새로 가져온/업데이트된 강의 목록
         """
         try:
             logger.info(f"사용자 {user_id}의 강의 목록 새로고침 시작")
@@ -98,7 +121,7 @@ class CourseService(BaseService):
                         saved_courses.append(saved_course)
                         
                 except Exception as save_error:
-                    logger.error(f"강의 저장 중 오류: {course_info.get('id', 'unknown')} - {str(save_error)}")
+                    logger.error(f"강의 저장 중 오류: {course_info.get('course_id', 'unknown')} - {str(save_error)}")
                     continue
 
             logger.info(f"총 {len(saved_courses)}개의 강의가 저장되었습니다")
