@@ -62,7 +62,8 @@ class AuthService:
                     user_data = {
                         'id': user_id,
                         'eclass_username': eclass_username,
-                        'encrypted_session_token': encrypted_eclass_password,  # AES-256 암호화됨 (임시로 이 컬럼 사용)
+                        'encrypted_session_token': '',
+                        'encrypted_eclass_password': encrypted_eclass_password,
                         'created_at': datetime.now().isoformat()
                     }
 
