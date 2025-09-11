@@ -1,7 +1,10 @@
-from typing import List, Dict, Any
+import logging
+from typing import List, Dict, Any, Optional
 from supabase import Client, create_client
 from app.core.supabase_client import get_supabase_client
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 class MaterialRepository:
     """Supabase를 사용한 학습자료 저장소"""
@@ -15,6 +18,20 @@ class MaterialRepository:
             self.supabase: Client = get_supabase_client()
         self.table_name = "materials"
     
+    async def get_by_id(self, material_id: str) -> Optional[Dict[str, Any]]:
+        """ID로 학습자료 조회"""
+        try:
+            result = self.supabase.table(self.table_name)\
+                .select("*")\
+                .eq("id", material_id)\
+                .single()\
+                .execute()
+            
+            return result.data
+        except Exception as e:
+            logger.error(f"학습자료 ID 조회 오류: {e}")
+            return None
+    
     async def get_by_course_id(self, course_id: str) -> List[Dict[str, Any]]:
         """강의 ID로 강의자료 조회"""
         try:
@@ -26,7 +43,7 @@ class MaterialRepository:
             
             return result.data
         except Exception as e:
-            print(f"강의자료 조회 오류: {e}")
+            logger.error(f"강의자료 강의별 조회 오류: {e}")
             return []
     
     async def get_by_course_and_user(self, course_id: str, user_id: str) -> List[Dict[str, Any]]:
@@ -41,5 +58,5 @@ class MaterialRepository:
             
             return result.data
         except Exception as e:
-            print(f"학습자료 조회 오류: {e}")
+            logger.error(f"학습자료 사용자별 조회 오류: {e}")
             return []

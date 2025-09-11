@@ -2,11 +2,9 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from typing import Any, Dict, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     get_current_user,
-    get_db_session,
     get_course_service,
     get_notice_service,
     get_material_service,
@@ -28,7 +26,6 @@ logger = logging.getLogger(__name__)
 async def sync_course(
         course_id: str,
         auto_download: bool = True,
-        db: AsyncSession = Depends(get_db_session),
         current_user: dict = Depends(get_current_user),
         course_service: CourseService = Depends(get_course_service),
         notice_service: NoticeService = Depends(get_notice_service),
@@ -39,7 +36,7 @@ async def sync_course(
     """특정 강의 전체 동기화"""
     try:
         # 강의 존재 확인
-        course = await course_service.get_course(current_user["id"], course_id, db)
+        course = await course_service.get_course_detail(current_user["id"], course_id)
         if not course:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -49,13 +46,13 @@ async def sync_course(
         # 각 콘텐츠 타입별 동기화 실행
         result = {
             "course_id": course_id,
-            "course_name": course.name,
+            "course_name": course.get('name', course_id),
             "status": "success",
             "details": {
-                "notices": await notice_service.refresh_all(db, course_id, current_user["id"], auto_download),
-                "materials": await material_service.refresh_all(db, course_id, current_user["id"], auto_download),
-                "assignments": await assignment_service.refresh_all(db, course_id, current_user["id"], auto_download),
-                "syllabus": bool(await syllabus_service.refresh_all(db, course_id, current_user["id"]))
+                "notices": await notice_service.refresh_all(course_id, current_user["id"], auto_download),
+                "materials": await material_service.refresh_all(course_id, current_user["id"], auto_download),
+                "assignments": await assignment_service.refresh_all(course_id, current_user["id"], auto_download),
+                "syllabus": await syllabus_service.refresh_all(current_user["id"], course_id)
             }
         }
 
@@ -72,7 +69,6 @@ async def sync_course(
 async def sync_all_courses(
         background_tasks: BackgroundTasks,
         auto_download: bool = True,
-        db: AsyncSession = Depends(get_db_session),
         current_user: dict = Depends(get_current_user),
         course_service: CourseService = Depends(get_course_service),
         notice_service: NoticeService = Depends(get_notice_service),
@@ -83,7 +79,7 @@ async def sync_all_courses(
     """모든 강의 동기화"""
     try:
         # 강의 목록 새로고침
-        courses = await course_service.get_courses(current_user["id"], db, force_refresh=True)
+        courses = await course_service.get_courses(current_user["id"], force_refresh=True)
 
         if not courses:
             return {
@@ -97,7 +93,6 @@ async def sync_all_courses(
             return await sync_course(
                 course_id=course_id,
                 auto_download=auto_download,
-                db=db,
                 current_user=current_user,
                 course_service=course_service,
                 notice_service=notice_service,
@@ -157,10 +152,9 @@ async def cancel_sync(
 async def crawl_all_courses(
         background_tasks: BackgroundTasks,
         auto_download: bool = False,
-        db: AsyncSession = Depends(get_db_session),
         current_user: dict = Depends(get_current_user),
         course_service: CourseService = Depends(get_course_service),
-        crawl_service: CrawlService = Depends(get_crawl_service)  # 이 부분 추가
+        crawl_service: CrawlService = Depends(get_crawl_service)
 ) -> Any:
     """모든 강의 자동 크롤링 시작"""
     try:
@@ -169,7 +163,6 @@ async def crawl_all_courses(
         # 실제 크롤링 작업은 CrawlService를 통해 수행
         result = await crawl_service.crawl_all_courses(
             user_id=current_user["id"],
-            db_session=db,
             auto_download=auto_download
         )
 

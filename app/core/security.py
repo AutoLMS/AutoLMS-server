@@ -1,18 +1,16 @@
 import logging
 from typing import Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 
 from app.db.repositories.attachment_repository import AttachmentRepository
 from app.db.repositories.course_repository import CourseRepository
-from app.models.attachment import Attachment
 
 logger = logging.getLogger(__name__)
 
 async def verify_attachment_access(
     user_id: str,
     attachment_id: int,
-    db: AsyncSession,
     attachment_repository: Optional[AttachmentRepository] = None,
     course_repository: Optional[CourseRepository] = None
 ) -> Attachment:
@@ -22,7 +20,6 @@ async def verify_attachment_access(
     Args:
         user_id: 접근을 요청하는 사용자 ID
         attachment_id: 접근하려는 첨부파일 ID
-        db: 데이터베이스 세션
         attachment_repository: 첨부파일 저장소 (의존성 주입용)
         course_repository: 강의 저장소 (의존성 주입용)
         
@@ -39,7 +36,7 @@ async def verify_attachment_access(
         course_repository = CourseRepository()
     
     # 첨부파일 조회
-    attachment = await attachment_repository.get_by_id(db, attachment_id)
+    attachment = await attachment_repository.get_by_id(attachment_id)
     if not attachment:
         logger.warning(f"첨부파일 접근 시도 실패: 존재하지 않는 파일 ID {attachment_id}")
         raise HTTPException(
@@ -49,7 +46,7 @@ async def verify_attachment_access(
     
     # 강의 접근 권한 확인
     course_id = attachment.course_id
-    course = await course_repository.get_by_id(db, course_id)
+    course = await course_repository.get_by_id(course_id)
     
     if not course:
         logger.warning(f"첨부파일 접근 시도 실패: 존재하지 않는 강의 ID {course_id}")
@@ -72,7 +69,6 @@ async def verify_attachment_access(
 async def verify_course_access(
     user_id: str,
     course_id: str,
-    db: AsyncSession,
     course_repository: Optional[CourseRepository] = None
 ) -> bool:
     """
@@ -95,7 +91,7 @@ async def verify_course_access(
         course_repository = CourseRepository()
     
     # 강의 조회
-    course = await course_repository.get_by_id(db, course_id)
+    course = await course_repository.get_by_id(course_id)
     if not course:
         logger.warning(f"강의 접근 시도 실패: 존재하지 않는 강의 ID {course_id}")
         raise HTTPException(
