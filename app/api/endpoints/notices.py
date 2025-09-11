@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.notice import Notice, NoticeList
 from app.api.deps import (
     get_current_user,
-    get_db_session,
     get_course_service,
     get_notice_service,
     get_storage_service
@@ -21,21 +19,20 @@ async def get_notices(
     course_id: str,
     skip: int = 0,
     limit: int = 100,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service),
     notice_service: NoticeService = Depends(get_notice_service)
 ) -> Any:
     """특정 강의의 공지사항 목록 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id, db)
+    course = await course_service.get_course(current_user["id"], course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="강의를 찾을 수 없습니다."
         )
 
-    notices = await notice_service.get_all(db, course_id, skip=skip, limit=limit)
+    notices = await notice_service.get_all(course_id, skip=skip, limit=limit)
     total = len(notices)
 
     return {
@@ -48,21 +45,20 @@ async def get_notices(
 @router.get("/refresh", response_model=dict)
 async def refresh_notices(
     course_id: str,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service),
     notice_service: NoticeService = Depends(get_notice_service)
 ) -> Any:
     """특정 강의의 공지사항 새로고침"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id, db)
+    course = await course_service.get_course(current_user["id"], course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="강의를 찾을 수 없습니다."
         )
 
-    result = await notice_service.refresh_all(db, course_id, current_user["id"], auto_download=True)
+    result = await notice_service.refresh_all(course_id, current_user["id"], auto_download=True)
     return {
         "course_id": course_id,
         "result": result
@@ -72,21 +68,20 @@ async def refresh_notices(
 async def get_notice(
     course_id: str,
     notice_id: int,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service),
     notice_service: NoticeService = Depends(get_notice_service)
 ) -> Any:
     """특정 공지사항 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id, db)
+    course = await course_service.get_course(current_user["id"], course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="강의를 찾을 수 없습니다."
         )
 
-    notice = await notice_service.get_by_id(db, notice_id)
+    notice = await notice_service.get_by_id( notice_id)
     if not notice or notice.course_id != course_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -100,7 +95,6 @@ async def download_notice_attachment(
     course_id: str,
     notice_id: int,
     attachment_id: int,
-    db: AsyncSession = Depends(get_db_session),
     current_user: dict = Depends(get_current_user),
     course_service: CourseService = Depends(get_course_service),
     notice_service: NoticeService = Depends(get_notice_service),
@@ -108,7 +102,7 @@ async def download_notice_attachment(
 ) -> Any:
     """공지사항 첨부파일 다운로드 URL 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id, db)
+    course = await course_service.get_course(current_user["id"], course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,7 +110,7 @@ async def download_notice_attachment(
         )
 
     # 공지사항 확인
-    notice = await notice_service.get_by_id(db, notice_id)
+    notice = await notice_service.get_by_id(notice_id)
     if not notice or notice.course_id != course_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -124,7 +118,7 @@ async def download_notice_attachment(
         )
 
     # 첨부파일 다운로드 URL 조회
-    download_url = await storage_service.get_download_url(attachment_id, current_user["id"], db)
+    download_url = await storage_service.get_download_url(attachment_id, current_user["id"])
     if not download_url:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

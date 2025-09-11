@@ -135,7 +135,7 @@ class MaterialService(BaseService):
                         'video_url': material_detail.get('video_url', '')
                     }
                     
-                    created_material = await self.repository.create(db, material_data)
+                    created_material = await self.repository.create(material_data)
                     result["new"] += 1
                     
                     # 첨부파일 처리

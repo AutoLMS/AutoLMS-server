@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from typing import Any
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.course import Course, CourseList
 from app.api.deps import (
@@ -27,7 +26,7 @@ async def get_courses(
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
     """모든 강의 목록 조회"""
-    courses = await course_service.get_courses(current_user["id"], db)
+    courses = await course_service.get_courses(user_id=current_user["id"])
     return {
         "courses": courses,
         "total": len(courses)
@@ -40,7 +39,7 @@ async def refresh_courses(
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
     """강의 목록 새로고침"""
-    courses = await course_service.get_courses(current_user["id"], force_refresh=True)
+    courses = await course_service.get_courses(user_id=current_user["id"], force_refresh=True)
     return {
         "courses": courses,
         "total": len(courses),
@@ -59,7 +58,7 @@ async def sync_course(
 ) -> Any:
     """특정 강의 전체 동기화"""
     # 1. 강의 정보 새로고침
-    course = await course_service.get_course(current_user["id"], course_id, db)
+    course = await course_service.get_course(current_user["id"], course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -85,7 +84,7 @@ async def get_course(
     course_service: CourseService = Depends(get_course_service)
 ) -> Any:
     """특정 강의 조회"""
-    course = await course_service.get_course(current_user["id"], course_id, db)
+    course = await course_service.get_course(current_user["id"], course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

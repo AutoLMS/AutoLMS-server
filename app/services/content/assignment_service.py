@@ -1,8 +1,6 @@
 import logging
 from typing import List, Dict, Any, Optional
 
-# from sqlalchemy removed
-
 from app.services.base_service import BaseService
 from app.services.session import EclassSessionManager
 from app.services.parsers.assignment_parser import AssignmentParser
@@ -58,18 +56,18 @@ class AssignmentService(BaseService):
             
             # 1. 강의 접근 권한 확인
             from app.core.security import verify_course_access
-            await verify_course_access(user_id, course_id, db)
+            await verify_course_access(user_id, course_id)
             
             # 2. 데이터베이스에서 과제 조회
-            assignments = await self.repository.get_by_course_id(db, course_id)
+            assignments = await self.repository.get_by_course_id(course_id)
             
             # 3. 과제가 없으면 새로고침 시도
             if not assignments:
                 logger.info(f"강의 {course_id}의 과제가 없습니다. 새로고침을 시도합니다.")
-                result = await self.refresh_all(db, course_id, user_id)
+                result = await self.refresh_all(course_id, user_id)
                 if result["new"] > 0:
                     # 새로고침 후 다시 조회
-                    assignments = await self.repository.get_by_course_id(db, course_id)
+                    assignments = await self.repository.get_by_course_id(course_id)
             
             # 4. 과제 목록 반환
             logger.info(f"강의 {course_id}의 과제 {len(assignments)}개 반환")
@@ -87,8 +85,7 @@ class AssignmentService(BaseService):
             user_id: 사용자 ID
             course_id: 강의 ID
             assignment_id: 과제 ID
-            db: 데이터베이스 세션
-            
+
         Returns:
             Optional[Assignment]: 과제 정보
         """
@@ -97,10 +94,10 @@ class AssignmentService(BaseService):
             
             # 1. 접근 권한 확인
             from app.core.security import verify_course_access
-            await verify_course_access(user_id, course_id, db)
+            await verify_course_access(user_id, course_id)
             
             # 2. 과제 조회
-            assignment = await self.repository.get_by_id(db, assignment_id)
+            assignment = await self.repository.get_by_id(assignment_id)
             
             # 3. 과제가 해당 강의에 속하는지 확인
             if not assignment or assignment.course_id != course_id:
@@ -112,7 +109,7 @@ class AssignmentService(BaseService):
             # 실제 DB 모델에는 이 필드가 없지만 응답 시 포함됨
             try:
                 attachments = await self.storage_service.get_attachments_by_source(
-                    "assignments", assignment.id, user_id, db
+                    "assignments", assignment.id, user_id
                 )
                 if hasattr(assignment, "attachments"):
                     assignment.attachments = attachments
@@ -175,7 +172,7 @@ class AssignmentService(BaseService):
                 return result
             
             # 4. 기존 과제 조회
-            existing_assignments = await self.repository.get_by_course_id(db, course_id)
+            existing_assignments = await self.repository.get_by_course_id(course_id)
             existing_assignment_ids = {assignment.assignment_id for assignment in existing_assignments}
             
             # 5. 각 과제 처리
@@ -224,13 +221,12 @@ class AssignmentService(BaseService):
                         'my_score': assignment_detail.get('score_info', {}).get('my_score')
                     }
                     
-                    created_assignment = await self.repository.create(db, assignment_data)
+                    created_assignment = await self.repository.create(assignment_data)
                     result["new"] += 1
                     
                     # 첨부파일 처리
                     if auto_download and assignment.get("attachments"):
                         attachment_count = await self._process_attachments(
-                            db,
                             eclass_session,
                             assignment["attachments"],
                             created_assignment.id,
@@ -342,7 +338,7 @@ class AssignmentService(BaseService):
                 }
 
                 # 데이터베이스에 저장
-                await self.attachment_repository.create(db, attachment_data)
+                await self.attachment_repository.create(attachment_data)
                 count += 1
                 logger.info(f"첨부파일 메타데이터 저장 완료: {file_name}")
 

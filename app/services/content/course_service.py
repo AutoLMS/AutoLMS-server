@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class CourseService(BaseService):
-    """강의 관리 서비스 - Supabase 기반"""
+    """강의 관리 서비스"""
     
     def __init__(
             self,

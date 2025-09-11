@@ -42,7 +42,6 @@ async def register(
 async def login(
         user_login: UserLogin,
         auth_service: AuthService = Depends(get_auth_service),
-        auth_session_service: AuthSessionService = Depends(get_auth_session_service)
 ) -> Any:
     """로그인 및 토큰 발급 - 이클래스 계정으로 로그인"""
     result = await auth_service.login(
