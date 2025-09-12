@@ -243,12 +243,6 @@ class SchedulerService:
             except Exception as session_error:
                 logger.error(f"세션 상태 확인 중 오류: {str(session_error)}")
             
-            # 3. 메모리 사용량 체크 (선택사항)
-            import psutil
-            memory_percent = psutil.virtual_memory().percent
-            if memory_percent > 80:
-                logger.warning(f"메모리 사용률이 높습니다: {memory_percent}%")
-            
         except Exception as e:
             logger.error(f"시스템 상태 확인 중 오류: {str(e)}")
     

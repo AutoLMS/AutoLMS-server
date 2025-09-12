@@ -4,8 +4,11 @@ from datetime import datetime
 
 
 class MaterialBase(BaseModel):
-    """강의자료 기본 스키마 - Supabase materials 테이블 구조에 맞춤"""
-    material_id: str  # 강의자료 고유 ID (e-Class에서)
+    """강의자료 기본 스키마 - Composite Key 전략 사용"""
+    id: str  # Composite Primary Key: "{course_id}_{material_id}"
+    course_id: str  # 강의 ID
+    material_id: str  # 강의자료 원본 ID (e-Class에서)
+    user_id: str  # 사용자 ID
     title: str  # 자료 제목
     content: Optional[str] = None  # 자료 내용
     author: Optional[str] = None  # 작성자
@@ -14,10 +17,17 @@ class MaterialBase(BaseModel):
     article_id: Optional[str] = None  # 게시글 ID (e-Class)
 
 
-class MaterialCreate(MaterialBase):
-    """강의자료 생성 요청 스키마"""
-    user_id: str  # 사용자 ID (필수)
-    course_id: str  # 강의 ID (필수)
+class MaterialCreate(BaseModel):
+    """강의자료 생성 요청 스키마 - ID는 자동 생성"""
+    course_id: str
+    material_id: str  # 원본 e-Class ID
+    user_id: str
+    title: str
+    content: Optional[str] = None
+    author: Optional[str] = None
+    date: Optional[str] = None
+    views: Optional[int] = 0
+    article_id: Optional[str] = None
 
 
 class MaterialUpdate(BaseModel):
@@ -31,11 +41,8 @@ class MaterialUpdate(BaseModel):
     attachments: Optional[List[Any]] = None
 
 
-class MaterialInDBBase(MaterialBase):
-    """데이터베이스의 강의자료 스키마 (내부 필드 포함)"""
-    id: int  # Primary key (auto increment)
-    user_id: str  # 사용자 ID (FK to auth.users.id)
-    course_id: str  # 강의 ID
+class MaterialInDB(MaterialBase):
+    """데이터베이스의 강의자료 스키마"""
     has_attachments: Optional[bool] = False  # 첨부파일 존재 여부
     attachments: Optional[List[Any]] = None  # 첨부파일 정보 (JSONB)
     created_at: datetime  # 생성 시간
@@ -45,21 +52,13 @@ class MaterialInDBBase(MaterialBase):
         from_attributes = True
 
 
-class Material(MaterialInDBBase):
+class Material(MaterialInDB):
     """API 응답용 강의자료 스키마"""
     pass
 
 
-class MaterialOut(BaseModel):
+class MaterialOut(MaterialBase):
     """강의자료 출력 스키마 (사용자에게 반환)"""
-    id: int
-    material_id: str
-    title: str
-    content: Optional[str] = None
-    author: Optional[str] = None
-    date: Optional[str] = None
-    views: Optional[int] = 0
-    course_id: str
     has_attachments: Optional[bool] = False
     attachments: Optional[List[Any]] = None
     created_at: datetime

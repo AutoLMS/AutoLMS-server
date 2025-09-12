@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from supabase import Client, create_client
 from app.core.supabase_client import get_supabase_client
 from app.core.config import settings
+from app.core.id_utils import generate_notice_id
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +62,17 @@ class NoticeRepository:
             logger.error(f"공지사항 사용자별 조회 오류: {e}")
             return []
 
-    """TODO 실제 공지사항 처리하도록 create 메서드 수정 필요"""
     async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
         """새로운 공지사항 생성"""
         try:
             # notice_id 필드 처리
             if "notice_id" not in kwargs and "article_id" in kwargs:
                 kwargs["notice_id"] = kwargs["article_id"]
+            
+            # Composite ID 자동 생성
+            if "course_id" in kwargs and "notice_id" in kwargs:
+                composite_id = generate_notice_id(kwargs["course_id"], kwargs["notice_id"])
+                kwargs["id"] = composite_id
             
             result = self.supabase.table(self.table_name)\
                 .insert(kwargs)\
@@ -82,14 +87,19 @@ class NoticeRepository:
             return None
     
     async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
-        """공지사항 생성 또는 업데이트 (notice_id로 중복 체크)"""
+        """공지사항 생성 또는 업데이트 (composite ID로 중복 체크)"""
         try:
             # notice_id 필드 처리
             if "notice_id" not in kwargs and "article_id" in kwargs:
                 kwargs["notice_id"] = kwargs["article_id"]
             
+            # Composite ID 자동 생성
+            if "course_id" in kwargs and "notice_id" in kwargs:
+                composite_id = generate_notice_id(kwargs["course_id"], kwargs["notice_id"])
+                kwargs["id"] = composite_id
+            
             result = self.supabase.table(self.table_name)\
-                .upsert(kwargs, on_conflict="notice_id,course_id,user_id")\
+                .upsert(kwargs, on_conflict="id")\
                 .execute()
             
             if result.data:

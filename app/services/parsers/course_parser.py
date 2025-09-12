@@ -1,5 +1,4 @@
 from typing import List, Dict, Any
-import re
 from bs4 import BeautifulSoup
 import logging
 from app.services.parsers.content_parser import ContentParser
@@ -110,10 +109,3 @@ class CourseParser(ContentParser):
         except Exception as e:
             logger.error(f"강의 메뉴 파싱 중 오류 발생: {e}")
             return {}
-            
-    async def parse_detail_with_attachments(self, eclass_session, html: str, course_id: str) -> Dict[str, Any]:
-        """
-        첨부파일 정보를 포함한 강의 상세 페이지 파싱
-        (강의에는 첨부파일이 없으므로 기본 parse_detail을 사용)
-        """
-        return self.parse_detail(html)

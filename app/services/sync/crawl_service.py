@@ -93,18 +93,21 @@ class CrawlService(BaseService):
 
             # 2. 특정 강의만 처리하는 경우
             if course_id:
-                courses = [course for course in courses if course.id == course_id]
+                courses = [course for course in courses if course.get('course_id') == course_id]
                 if not courses:
                     logger.warning(f"강의 {course_id}를 찾을 수 없음")
                     return result
 
             # 3. 각 강의별 처리
             for course in courses:
-                logger.info(f"강의 {course.id} - {course.name} 크롤링 시작")
+                course_id_val = course.get('course_id', '알 수 없음')
+                course_name_val = course.get('course_name', '알 수 없음')
+                logger.info(f"강의 {course_id_val} - {course_name_val} 크롤링 시작")
 
                 # 3.1 강의계획서 크롤링
                 try:
-                    syllabus_result = await self.syllabus_service.refresh_all(course.id, user_id)
+                    course_id_for_syllabus = course.get('course_id')
+                    syllabus_result = await self.syllabus_service.refresh_all(course_id_for_syllabus, user_id)
                     result["syllabus"]["new"] += syllabus_result.get("new", 0)
                     result["syllabus"]["errors"] += syllabus_result.get("errors", 0)
                 except Exception as e:
@@ -113,7 +116,8 @@ class CrawlService(BaseService):
 
                 # 3.2 공지사항 크롤링
                 try:
-                    notice_result = await self.crawl_notices(user_id, course.id,auto_download)
+                    course_id_for_notice = course.get('course_id')
+                    notice_result = await self.crawl_notices(user_id, course_id_for_notice, auto_download)
                     result["notices"]["new"] += notice_result.get("new", 0)
                     result["notices"]["errors"] += notice_result.get("errors", 0)
                 except Exception as e:
@@ -122,7 +126,8 @@ class CrawlService(BaseService):
 
                 # 3.3 강의자료 크롤링
                 try:
-                    material_result = await self.material_service.refresh_all(course.id, user_id, auto_download)
+                    course_id_for_material = course.get('course_id')
+                    material_result = await self.material_service.refresh_all(course_id_for_material, user_id, auto_download)
                     result["materials"]["new"] += material_result.get("new", 0)
                     result["materials"]["errors"] += material_result.get("errors", 0)
                 except Exception as e:
@@ -131,14 +136,15 @@ class CrawlService(BaseService):
 
                 # 3.4 과제 크롤링
                 try:
-                    assignment_result = await self.crawl_assignments(user_id, course.id, auto_download)
+                    course_id_for_assignment = course.get('course_id')
+                    assignment_result = await self.crawl_assignments(user_id, course_id_for_assignment, auto_download)
                     result["assignments"]["new"] += assignment_result.get("new", 0)
                     result["assignments"]["errors"] += assignment_result.get("errors", 0)
                 except Exception as e:
                     logger.error(f"과제 크롤링 중 오류: {str(e)}")
                     result["assignments"]["errors"] += 1
 
-                logger.info(f"강의 {course.id} - {course.name} 크롤링 완료")
+                logger.info(f"강의 {course_id_val} - {course_name_val} 크롤링 완료")
 
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
@@ -285,7 +291,7 @@ class CrawlService(BaseService):
     async def crawl_all_courses(self, user_id: str, auto_download: bool = False) -> Dict[
         str, Any]:
         """
-        모든 강의 크롤링 (이전 EclassService의 타스크 관리 기능 포함)
+        모든 강의 크롤링
 
         Args:
             user_id: 사용자 ID
@@ -340,7 +346,7 @@ class CrawlService(BaseService):
             "task_id": task_id,
             "status": "running",
             "message": f"모든 강의 크롤링 작업이 시작되었습니다. ({len(courses)}개)",
-            "courses": [course.name for course in courses]
+            "courses": [course.get('course_name', '알 수 없음') for course in courses]
         }
 
     async def _crawl_all_courses_task(self, user_id: str, courses: List[Any],
@@ -382,8 +388,13 @@ class CrawlService(BaseService):
 
             # 각 강의 순차적으로 크롤링
             for course in courses:
+                course_id = None
                 try:
-                    course_id = course.id
+                    course_id = course.get('course_id')
+                    if not course_id:
+                        logger.error(f"강의 ID를 찾을 수 없음: {course}")
+                        result["summary"]["failed"] += 1
+                        continue
 
                     # 개별 강의 크롤링
                     course_result = await self.crawl_course(
@@ -392,8 +403,8 @@ class CrawlService(BaseService):
 
                     # 결과 저장
                     result["course_results"][course_id] = {
-                        "name": course.name,
-                        "code": course.code,
+                        "name": course.get('name', '알 수 없음'),
+                        "code": course.get('code', course.get('course_code', '')),
                         "status": course_result.get("status", "unknown"),
                         "details": course_result.get("details", {})
                     }
@@ -412,13 +423,20 @@ class CrawlService(BaseService):
                         result["summary"]["failed"] += 1
 
                 except Exception as e:
-                    logger.error(f"강의 {course_id} 크롤링 중 오류: {e}")
-                    result["course_results"][course_id] = {
-                        "name": course.name,
-                        "code": course.code,
-                        "status": "error",
-                        "message": str(e)
-                    }
+                    course_name = course.get('name', '알 수 없음') if course else '알 수 없음'
+                    course_code = course.get('code', course.get('course_code', '')) if course else ''
+                    error_course_id = course_id or '알 수 없음'
+                    
+                    logger.error(f"강의 {error_course_id} 크롤링 중 오류: {e}")
+                    
+                    if course_id:
+                        result["course_results"][course_id] = {
+                            "name": course_name,
+                            "code": course_code,
+                            "status": "error",
+                            "message": str(e)
+                        }
+                    
                     result["summary"]["failed"] += 1
 
             # 작업 완료
@@ -479,7 +497,7 @@ class CrawlService(BaseService):
             }
 
         # 코스 정보 확인
-        course = await self.course_service.get_course(user_id, course_id)
+        course = await self.course_service.get_course(course_id)
         if not course:
             logger.error(f"강의 정보 없음: {course_id}")
             return {
@@ -509,7 +527,7 @@ class CrawlService(BaseService):
             "status": "running",
             "message": "크롤링 작업이 시작되었습니다.",
             "course_id": course_id,
-            "course_name": course.name
+            "course_name": course.get('course_name', '알 수 없음')
         }
 
     async def _crawl_course_task(self, user_id: str, course_id: str,

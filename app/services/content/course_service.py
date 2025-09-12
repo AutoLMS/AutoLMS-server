@@ -135,14 +135,12 @@ class CourseService(BaseService):
 
     async def get_course(
             self,
-            user_id: str,
             course_id: str
     ) -> Optional[Dict[str, Any]]:
         """
         특정 강의의 상세 정보 조회
         
         Args:
-            user_id: 사용자 ID
             course_id: 강의 ID
             
         Returns:

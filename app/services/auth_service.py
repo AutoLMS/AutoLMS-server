@@ -233,7 +233,7 @@ class AuthService:
 
 
     async def get_user_eclass_credentials(self, user_id: str) -> Optional[Dict[str, str]]:
-        """사용자의 이클래스 계정 정보 조회 (Supabase에서)"""
+        """Supabase에서 사용자의 이클래스 계정 정보 조회"""
         try:
             # Supabase users 테이블에서 사용자 조회
             user_response = self.supabase.table('users').select('eclass_username, encrypted_eclass_password').eq('id', user_id).execute()
