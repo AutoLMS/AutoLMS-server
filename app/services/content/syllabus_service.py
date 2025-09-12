@@ -144,7 +144,7 @@ class SyllabusService(BaseService):
         
         return result
         
-    async def refresh_all(self, user_id: str, course_id: str) -> Dict[str, Any]:
+    async def refresh_all(self, course_id: str, user_id: str) -> Dict[str, Any]:
         """
         강의계획서 새로고침 (다른 서비스와 형식 통일)
         

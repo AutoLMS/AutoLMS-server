@@ -52,7 +52,7 @@ async def sync_course(
                 "notices": await notice_service.refresh_all(course_id, current_user["id"], auto_download),
                 "materials": await material_service.refresh_all(course_id, current_user["id"], auto_download),
                 "assignments": await assignment_service.refresh_all(course_id, current_user["id"], auto_download),
-                "syllabus": await syllabus_service.refresh_all(current_user["id"], course_id)
+                "syllabus": await syllabus_service.refresh_all(course_id, current_user["id"])
             }
         }
 

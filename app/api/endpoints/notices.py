@@ -32,7 +32,7 @@ async def get_notices(
             detail="강의를 찾을 수 없습니다."
         )
 
-    notices = await notice_service.get_all(course_id, skip=skip, limit=limit)
+    notices = await notice_service.get_notices_by_course(course_id, skip=skip, limit=limit)
     total = len(notices)
 
     return {
@@ -81,7 +81,7 @@ async def get_notice(
             detail="강의를 찾을 수 없습니다."
         )
 
-    notice = await notice_service.get_by_id( notice_id)
+    notice = await notice_service.get_notice_by_id(notice_id)
     if not notice or notice.course_id != course_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -110,7 +110,7 @@ async def download_notice_attachment(
         )
 
     # 공지사항 확인
-    notice = await notice_service.get_by_id(notice_id)
+    notice = await notice_service.get_notice_by_id(notice_id)
     if not notice or notice.course_id != course_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

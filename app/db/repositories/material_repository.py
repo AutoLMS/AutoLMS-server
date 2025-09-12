@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from supabase import Client, create_client
 from app.core.supabase_client import get_supabase_client
 from app.core.config import settings
+from app.core.id_utils import generate_material_id
 
 logger = logging.getLogger(__name__)
 
@@ -61,19 +62,32 @@ class MaterialRepository:
             logger.error(f"학습자료 사용자별 조회 오류: {e}")
             return []
     
-    async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
-        """새로운 학습자료 생성"""
+    async def create(self, material_data=None, **kwargs) -> Optional[Dict[str, Any]]:
+        """새로운 학습자료 생성
+        Composite Key 자동 생성"""
         try:
-            # material_id 필드 처리
+            # material_data가 딕셔너리로 전달된 경우 kwargs로 언패킹
+            if material_data is not None and isinstance(material_data, dict):
+                kwargs.update(material_data)
+            
+            # 필수 필드 확인
+            if not kwargs.get('course_id') or not kwargs.get('material_id'):
+                raise ValueError("course_id와 material_id는 필수입니다")
+                
+            # article_id 처리 (이전 버전 호환성)
             if "material_id" not in kwargs and "article_id" in kwargs:
                 kwargs["material_id"] = kwargs["article_id"]
+            
+            # Composite ID 자동 생성
+            composite_id = generate_material_id(kwargs['course_id'], kwargs['material_id'])
+            kwargs['id'] = composite_id
             
             result = self.supabase.table(self.table_name)\
                 .insert(kwargs)\
                 .execute()
             
             if result.data:
-                logger.info(f"학습자료 생성 완료: {kwargs.get('title', 'Unknown')}")
+                logger.info(f"학습자료 생성 완료: {kwargs.get('title', 'Unknown')} (ID: {composite_id})")
                 return result.data[0]
             return None
         except Exception as e:
@@ -81,18 +95,27 @@ class MaterialRepository:
             return None
     
     async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
-        """학습자료 생성 또는 업데이트 (material_id로 중복 체크)"""
+        """학습자료 생성 또는 업데이트
+        Composite Key 기반"""
         try:
-            # material_id 필드 처리
+            # 필수 필드 확인
+            if not kwargs.get('course_id') or not kwargs.get('material_id'):
+                raise ValueError("course_id와 material_id는 필수입니다")
+                
+            # article_id 처리 (이전 버전 호환성)
             if "material_id" not in kwargs and "article_id" in kwargs:
                 kwargs["material_id"] = kwargs["article_id"]
             
+            # Composite ID 자동 생성
+            composite_id = generate_material_id(kwargs['course_id'], kwargs['material_id'])
+            kwargs['id'] = composite_id
+            
             result = self.supabase.table(self.table_name)\
-                .upsert(kwargs, on_conflict="material_id,course_id,user_id")\
+                .upsert(kwargs, on_conflict="id")\
                 .execute()
             
             if result.data:
-                logger.info(f"학습자료 upsert 완료: {kwargs.get('title', 'Unknown')}")
+                logger.info(f"학습자료 upsert 완료: {kwargs.get('title', 'Unknown')} (ID: {composite_id})")
                 return result.data[0]
             return None
         except Exception as e:

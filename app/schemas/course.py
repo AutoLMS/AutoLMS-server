@@ -4,8 +4,8 @@ from datetime import datetime
 
 
 class CourseBase(BaseModel):
-    """강의 기본 스키마 - Supabase courses 테이블 구조에 맞춤"""
-    course_id: str  # 실제 강의 고유 ID (e-Class에서)
+    """강의 기본 스키마 - course_id를 Primary Key로 사용"""
+    course_id: str  # 강의 고유 ID (e-Class에서) - Primary Key
     course_name: str  # 강의명
     instructor: Optional[str] = None  # 교수명
     semester: Optional[str] = None  # 학기
@@ -28,9 +28,8 @@ class CourseUpdate(BaseModel):
     last_crawled: Optional[datetime] = None
 
 
-class CourseInDBBase(CourseBase):
-    """데이터베이스의 강의 스키마 (내부 필드 포함)"""
-    id: str  # UUID primary key
+class CourseInDB(CourseBase):
+    """데이터베이스의 강의 스키마 - course_id가 Primary Key"""
     last_crawled: Optional[datetime] = None  # 마지막 크롤링 시간
     created_at: datetime  # 생성 시간
     updated_at: datetime  # 수정 시간
@@ -39,21 +38,16 @@ class CourseInDBBase(CourseBase):
         from_attributes = True
 
 
-class Course(CourseInDBBase):
+class Course(CourseInDB):
     """API 응답용 강의 스키마"""
     pass
 
 
-class CourseOut(BaseModel):
-    """강의 출력 스키마 (사용자에게 반환)"""
-    id: str
-    course_id: str
-    course_name: str
-    instructor: Optional[str] = None
-    semester: Optional[str] = None
-    year: Optional[int] = None
-    description: Optional[str] = None
+class CourseOut(CourseBase):
+    """강의 출력 스키마 (사용자에게 반환) - 불필요한 id 필드 제거"""
     last_crawled: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class CourseList(BaseModel):
@@ -72,8 +66,3 @@ class UserCourseRelation(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-
-class CourseWithEnrollment(CourseOut):
-    """등록 정보가 포함된 강의 스키마"""
-    enrollment_date: Optional[datetime] = None
-    last_accessed: Optional[datetime] = None

@@ -45,10 +45,11 @@ class CourseRepository:
             result = self.supabase.table(self.table_name)\
                 .select("*")\
                 .eq("course_id", course_id)\
-                .single()\
                 .execute()
             
-            return result.data
+            if result.data and len(result.data) > 0:
+                return result.data[0]
+            return None
         except Exception as e:
             print(f"코스 조회 오류: {e}")
             return None

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from app.services.auth_service import AuthService
 from app.services.base_service import BaseService
@@ -274,3 +274,39 @@ class MaterialService(BaseService):
                 logger.error(f"첨부파일 '{attachment.get('file_name', '알 수 없음')}' 처리 중 오류: {str(e)}")
 
         return count
+
+    async def get_materials_by_course(self, course_id: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        특정 강의의 모든 강의자료 조회
+        
+        Args:
+            course_id: 강의 ID
+            skip: 건너뛸 개수
+            limit: 제한 개수
+            
+        Returns:
+            List[Dict[str, Any]]: 강의자료 목록
+        """
+        try:
+            materials = await self.repository.get_by_course_id(course_id)
+            return materials[skip:skip+limit]
+        except Exception as e:
+            logger.error(f"강의자료 목록 조회 중 오류: {str(e)}")
+            return []
+
+    async def get_material_by_id(self, material_id: str) -> Optional[Dict[str, Any]]:
+        """
+        ID로 강의자료 조회
+        
+        Args:
+            material_id: 강의자료 ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 강의자료 정보
+        """
+        try:
+            material = await self.repository.get_by_id(material_id)
+            return material
+        except Exception as e:
+            logger.error(f"강의자료 ID 조회 중 오류: {str(e)}")
+            return None

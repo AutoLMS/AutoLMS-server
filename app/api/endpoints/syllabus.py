@@ -53,7 +53,7 @@ async def refresh_syllabus(
             detail="강의를 찾을 수 없습니다."
         )
 
-    result = await syllabus_service.refresh_all(current_user["id"], course_id)
+    result = await syllabus_service.refresh_all(course_id, current_user["id"])
     return {
         "course_id": course_id,
         "result": result
