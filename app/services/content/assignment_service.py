@@ -153,11 +153,30 @@ class AssignmentService(BaseService):
                 result["errors"] += 1
                 return result
             
-            # 2. 과제 목록 페이지 접근
-            base_url = "https://eclass.seoultech.ac.kr"
-            assignment_url = f"{base_url}/report/report_list.jsp?ud={user_id}&ky={course_id}"
+            # 2. 먼저 강의실 접근 (자연스러운 탐색 패턴)
+            course_main_url = await eclass_session.access_course(course_id)
+            if not course_main_url:
+                logger.error(f"강의실 접근 실패: {course_id}")
+                result["errors"] += 1
+                return result
             
-            response = await eclass_session.get(assignment_url)
+            # 강의실 메인 페이지 방문 (Referer 설정을 위해)
+            await eclass_session.get(course_main_url)
+            
+            # 3. 과제 목록 페이지 접근
+            base_url = "https://eclass.seoultech.ac.kr"
+            assignment_url = f"{base_url}/ilos/st/course/report_list.acl"
+            
+            data = {
+                'KJKEY': course_id,
+                'start': '1',
+                'display': '100',
+                'SCH_VALUE': '',
+                'encoding': 'utf-8'
+            }
+            
+            # Referer를 강의실 메인 페이지로 설정하여 자연스러운 탐색 시뮬레이션
+            response = await eclass_session.get(assignment_url, params=data, referer=course_main_url)
             if not response:
                 logger.error("과제 목록 요청 실패")
                 result["errors"] += 1
@@ -207,16 +226,14 @@ class AssignmentService(BaseService):
                     
                     # DB 저장
                     assignment_data = {
+                        'user_id': user_id,
                         'assignment_id': assignment_id,
                         'course_id': course_id,
                         'title': assignment.get('title'),
                         'content': assignment_detail.get('content', ''),
-                        'content_html': assignment_detail.get('content_html', ''),
                         'start_date': assignment.get('start_date'),
                         'end_date': assignment.get('end_date', assignment_detail.get('due_date')),
-                        'status': assignment.get('status'),
-                        'max_score': assignment_detail.get('score_info', {}).get('max_score'),
-                        'my_score': assignment_detail.get('score_info', {}).get('my_score')
+                        'status': assignment.get('status', 'active')
                     }
                     
                     created_assignment = await self.repository.create(assignment_data)

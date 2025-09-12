@@ -15,11 +15,20 @@ class MaterialParser(ContentParser):
             if not html:
                 return []
                 
+            # 임시 디버그 로깅 - HTML 내용 확인
+            logger.warning(f"[DEBUG] 강의자료 HTML 응답 길이: {len(html)} 바이트")
+            logger.warning(f"[DEBUG] 강의자료 HTML 응답 내용 샘플: {html[:500]}...")
+            if len(html) <= 400:  # 짧은 응답이면 전체 내용 출력
+                logger.warning(f"[DEBUG] 강의자료 HTML 전체 내용: {html}")
+                
             soup = BeautifulSoup(html, 'html.parser')
             material_rows = soup.select('tr[style*="cursor: pointer"]')
             
             if not material_rows:
                 logger.warning("강의자료 목록을 찾을 수 없습니다.")
+                # 대안 셀렉터로 시도
+                alternative_rows = soup.find_all('tr')
+                logger.warning(f"[DEBUG] 강의자료 전체 tr 태그 수: {len(alternative_rows)}")
                 return []
                 
             materials = []

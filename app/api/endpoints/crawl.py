@@ -9,9 +9,9 @@ from app.api.deps import (
     get_notice_service,
     get_material_service,
     get_assignment_service,
-    get_syllabus_service, get_eclass_session_manager, get_crawl_service
+    get_syllabus_service, get_crawl_service
 )
-from app.services import EclassSessionManager, CrawlService
+from app.services import CrawlService
 from app.services.content.course_service import CourseService
 from app.services.content.notice_service import NoticeService
 from app.services.content.material_service import MaterialService
@@ -36,7 +36,7 @@ async def sync_course(
     """특정 강의 전체 동기화"""
     try:
         # 강의 존재 확인
-        course = await course_service.get_course(current_user["id"], course_id)
+        course = await course_service.get_course(course_id)
         if not course:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -79,7 +79,7 @@ async def sync_all_courses(
     """모든 강의 동기화"""
     try:
         # 강의 목록 새로고침
-        courses = await course_service.get_courses(current_user["id"], force_refresh=True)
+        courses = await course_service.get_courses(current_user["id"])
 
         if not courses:
             return {

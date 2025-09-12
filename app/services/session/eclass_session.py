@@ -1,6 +1,10 @@
 import httpx
 import logging
+import asyncio
+import os
+from datetime import datetime
 from typing import Dict, Optional
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +18,20 @@ class EclassSession:
         self.course_access_url = f"{self.base_url}/ilos/st/course/eclass_room_submain.acl"
         
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"macOS"',
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
         }
         self.client = httpx.AsyncClient(headers=self.headers, follow_redirects=True, timeout=30.0)
         self.user_id = None
@@ -26,6 +43,7 @@ class EclassSession:
             timeout=30.0
         )
         self._is_logged_in = False
+        self._last_url = None
 
 
     async def login(self, username: str, password: str) -> bool:
@@ -106,13 +124,31 @@ class EclassSession:
             self._is_logged_in = False
             return False
 
-    async def get(self, url: str, params: Dict = None) -> httpx.Response:
-        """GET 요청 수행"""
+    async def get(self, url: str, params: Dict = None, referer: str = None) -> httpx.Response:
+        """GET 요청 수행 (방화벽 회피를 위한 지연 시간 및 Referer 포함)"""
         try:
-            logger.debug(f"GET 요청: {url}, 파라미터: {params}")
-            response = await self.client.get(url, params=params)
+            # 방화벽 회피를 위한 요청 간 지연 (1-3초 랜덤)
+            await asyncio.sleep(1.5)
+            
+            # 동적 헤더 설정 (Referer 포함, URL 인코딩 처리)
+            headers = self.headers.copy()
+            if referer:
+                # URL 인코딩 처리 (한글 등이 포함된 URL 처리)
+                headers["Referer"] = referer.encode('utf-8', errors='ignore').decode('ascii', errors='ignore')
+            elif hasattr(self, '_last_url') and self._last_url:
+                headers["Referer"] = self._last_url.encode('utf-8', errors='ignore').decode('ascii', errors='ignore')
+            
+            logger.debug(f"GET 요청: {url}, 파라미터: {params}, Referer: {headers.get('Referer', 'None')}")
+            response = await self.client.get(url, params=params, headers=headers)
             response.raise_for_status()
             logger.debug(f"GET 응답: {response.status_code}, 내용 길이: {len(response.text)}")
+            
+            # HTML 덤프 저장 (디버깅용)
+            await self._save_html_dump(url, response.text, params)
+            
+            # 마지막 URL 저장 (다음 요청의 Referer로 사용)
+            self._last_url = url
+            
             return response
         except httpx.HTTPError as e:
             logger.error(f"GET 요청 중 HTTP 오류 발생: {url}, {e}")
@@ -167,6 +203,36 @@ class EclassSession:
             logger.error(f"강의실 접근 중 오류: {e}")
             return None
 
+    async def _save_html_dump(self, url: str, html_content: str, params: Dict = None):
+        """HTML 응답 덤프 저장 (디버깅용)"""
+        try:
+            # 디버깅 디렉터리 생성
+            debug_dir = "debug_html_dumps"
+            os.makedirs(debug_dir, exist_ok=True)
+            
+            # 파일명 생성 (타임스탬프 + URL 기반)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            url_safe = url.replace('/', '_').replace(':', '').replace('?', '_').replace('&', '_')[:50]
+            filename = f"{timestamp}_{url_safe}.html"
+            filepath = os.path.join(debug_dir, filename)
+            
+            # HTML 내용과 메타데이터 저장
+            meta_info = f"""<!-- 
+URL: {url}
+Params: {params}
+Timestamp: {datetime.now().isoformat()}
+Content-Length: {len(html_content)}
+-->
+"""
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(meta_info + html_content)
+            
+            logger.info(f"HTML 덤프 저장: {filepath}")
+            
+        except Exception as e:
+            logger.error(f"HTML 덤프 저장 오류: {e}")
+    
     async def close(self):
         """세션 종료"""
         logger.info("세션 종료")

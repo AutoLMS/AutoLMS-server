@@ -97,20 +97,30 @@ class NoticeService(BaseService):
                 result["errors"] += 1
                 return result
             
-            # 2. 공지사항 목록 페이지 접근
+            # 2. 먼저 강의실 접근 (자연스러운 탐색 패턴)
+            course_main_url = await eclass_session.access_course(course_id)
+            if not course_main_url:
+                logger.error(f"강의실 접근 실패: {course_id}")
+                result["errors"] += 1
+                return result
+            
+            # 강의실 메인 페이지 방문 (Referer 설정을 위해)
+            await eclass_session.get(course_main_url)
+            
+            # 3. 공지사항 목록 페이지 접근
             base_url = "https://eclass.seoultech.ac.kr"
-            notice_url = f"{base_url}/notice/notice_list.jsp?ud={user_id}&ky={course_id}"
+            notice_url = f"{base_url}/ilos/st/course/notice_list.acl"
             
             data = {
+                'KJKEY': course_id,
                 'start': '1',
                 'display': '100',  # 한 번에 가져올 개수
                 'SCH_VALUE': '',
-                'ud': user_id,
-                'ky': course_id,
                 'encoding': 'utf-8'
             }
             
-            response = await eclass_session.post(notice_url, data=data)
+            # Referer를 강의실 메인 페이지로 설정하여 자연스러운 탐색 시뮬레이션
+            response = await eclass_session.get(notice_url, params=data, referer=course_main_url)
             if not response:
                 logger.error("공지사항 목록 요청 실패")
                 result["errors"] += 1

@@ -15,39 +15,78 @@ class AssignmentParser(ContentParser):
             if not html:
                 return []
                 
+            # HTML 길이 확인
+            logger.debug(f"과제 HTML 응답 길이: {len(html)} 바이트")
+                
             soup = BeautifulSoup(html, 'html.parser')
-            # 과제 테이블 찾기
-            assignment_table = soup.find('table', class_='table_topic')
+            # 과제 테이블 찾기 (실제 HTML 구조에 맞게 수정)
+            assignment_table = soup.find('table', class_='bbslist new_bbslist')
+            if not assignment_table:
+                # 대안: 부분 클래스 매칭 시도
+                assignment_table = soup.find('table', class_=lambda x: x and 'bbslist' in x)
+            
             if not assignment_table:
                 logger.warning("과제 테이블을 찾을 수 없습니다.")
+                # 대안 테이블 확인
+                all_tables = soup.find_all('table')
+                logger.warning(f"[DEBUG] 과제 전체 table 태그 수: {len(all_tables)}")
+                for i, table in enumerate(all_tables):
+                    logger.warning(f"[DEBUG] 테이블 {i+1} 클래스: {table.get('class', 'None')}")
                 return []
                 
-            # 과제 행 찾기
-            assignment_rows = assignment_table.find_all('tr')[1:]  # 헤더 제외
+            # 과제 행 찾기 (tbody 내부 tr 사용)
+            tbody = assignment_table.find('tbody')
+            if tbody:
+                assignment_rows = tbody.find_all('tr')
+            else:
+                # 대안: 헤더를 제외한 모든 tr
+                assignment_rows = assignment_table.find_all('tr')[1:]
             
             assignments = []
             for row in assignment_rows:
                 try:
                     cols = row.find_all('td')
-                    if len(cols) < 7:  # 과제 행은 보통 7개 이상의 열을 가짐
+                    if len(cols) < 8:  # 실제 과제 행은 8개의 열을 가짐
                         continue
                         
-                    # onclick 속성에서 URL 추출
+                    # onclick 속성에서 URL 추출 (실제 HTML: pageMove('/ilos/st/course/report_view_form.acl?RT_SEQ=...'))
                     onclick_value = row.get('onclick', '')
+                    if not onclick_value:
+                        # td 내부에서 onclick 속성을 가진 요소 찾기
+                        onclick_td = row.find('td', attrs={'onclick': True})
+                        if onclick_td:
+                            onclick_value = onclick_td.get('onclick', '')
+                    
                     detail_url = self.extract_url_from_onclick(onclick_value)
                     
-                    # 과제 ID 추출
-                    assignment_id = self.extract_article_id(detail_url)
+                    # 과제 ID 추출 (RT_SEQ 파라미터 사용)
+                    assignment_id = None
+                    if detail_url and 'RT_SEQ=' in detail_url:
+                        import re
+                        match = re.search(r'RT_SEQ=(\d+)', detail_url)
+                        if match:
+                            assignment_id = match.group(1)
+                    
+                    if not assignment_id:
+                        assignment_id = self.extract_article_id(detail_url)
                     
                     if not assignment_id or not detail_url:
                         continue
                         
+                    # 제목 추출 (div.subjt_top에서 실제 제목 추출)
+                    title = cols[2].text.strip()
+                    subjt_top = cols[2].find('div', class_='subjt_top')
+                    if subjt_top:
+                        title = subjt_top.text.strip()
+                    
                     assignment = {
                         'assignment_id': assignment_id,
-                        'title': cols[1].text.strip(),
-                        'start_date': cols[3].text.strip(),
-                        'end_date': cols[4].text.strip(),
-                        'status': cols[5].text.strip(),
+                        'title': title,
+                        'progress_status': cols[3].text.strip(),  # 진행 상태
+                        'submission_status': cols[4].text.strip(),  # 제출 상태  
+                        'score': cols[5].text.strip(),  # 점수
+                        'max_score': cols[6].text.strip(),  # 배점
+                        'due_date': cols[7].text.strip(),  # 마감일
                         'url': detail_url
                     }
                     assignments.append(assignment)

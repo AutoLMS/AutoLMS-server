@@ -61,7 +61,7 @@ class SyllabusService(BaseService):
             existing_syllabus = await self.repository.get_by_course_id(course_id)
             if existing_syllabus:
                 logger.info(f"저장된 강의계획서 반환 (course_id: {course_id})")
-                return existing_syllabus.to_dict() if hasattr(existing_syllabus, 'to_dict') else vars(existing_syllabus)
+                return existing_syllabus if existing_syllabus else None
         
         # 새로운 강의계획서 조회
         try:
@@ -94,22 +94,30 @@ class SyllabusService(BaseService):
                 logger.warning(f"강의계획서 파싱 결과 없음 (course_id: {course_id})")
                 return None
             
-            # JSON 형태로 변환
+            # JSON 형태로 변환 (DB 스키마에 맞게 매핑)
             syllabus_json = {
                 'course_id': course_id,
-                'content': syllabus_data
+                'user_id': user_id,
+                'basic_info': syllabus_data.get('수업기본정보', {}),
+                'instructor_info': syllabus_data.get('담당교수정보', {}),
+                'course_plan': syllabus_data.get('강의계획', {}),
+                'weekly_plan': syllabus_data.get('주별강의계획', [])
             }
             
             # 저장소에 저장
             existing_syllabus = await self.repository.get_by_course_id(course_id)
             if existing_syllabus:
-                updated_syllabus = await self.repository.update(existing_syllabus.id, syllabus_json)
+                updated_syllabus = await self.repository.update(existing_syllabus['id'], **syllabus_json)
                 saved_syllabus = updated_syllabus
             else:
-                saved_syllabus = await self.repository.create(syllabus_json)
+                saved_syllabus = await self.repository.create(**syllabus_json)
             
-            logger.info(f"강의계획서 조회 완료 (course_id: {course_id})")
-            return saved_syllabus.to_dict() if hasattr(saved_syllabus, 'to_dict') else vars(saved_syllabus)
+            if saved_syllabus:
+                logger.info(f"강의계획서 조회 완료 (course_id: {course_id})")
+                return saved_syllabus
+            else:
+                logger.error(f"강의계획서 저장 실패 (course_id: {course_id})")
+                return None
             
         except Exception as e:
             logger.error(f"강의계획서 조회 중 오류 발생: {str(e)}")

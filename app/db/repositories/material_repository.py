@@ -47,24 +47,9 @@ class MaterialRepository:
             logger.error(f"강의자료 강의별 조회 오류: {e}")
             return []
     
-    async def get_by_course_and_user(self, course_id: str, user_id: str) -> List[Dict[str, Any]]:
-        """강의 ID와 사용자 ID로 학습자료 조회"""
-        try:
-            result = self.supabase.table(self.table_name)\
-                .select("*")\
-                .eq("course_id", course_id)\
-                .eq("user_id", user_id)\
-                .order("created_at", desc=True)\
-                .execute()
-            
-            return result.data
-        except Exception as e:
-            logger.error(f"학습자료 사용자별 조회 오류: {e}")
-            return []
-    
     async def create(self, material_data=None, **kwargs) -> Optional[Dict[str, Any]]:
         """새로운 학습자료 생성
-        Composite Key 자동 생성"""
+        - Composite Key 자동 생성"""
         try:
             # material_data가 딕셔너리로 전달된 경우 kwargs로 언패킹
             if material_data is not None and isinstance(material_data, dict):
