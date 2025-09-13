@@ -143,8 +143,8 @@ class EclassSession:
             response.raise_for_status()
             logger.debug(f"GET 응답: {response.status_code}, 내용 길이: {len(response.text)}")
             
-            # HTML 덤프 저장 (디버깅용)
-            await self._save_html_dump(url, response.text, params)
+            # HTML 덤프 저장 (필요시 활성화)
+            # await self._save_html_dump(url, response.text, params)
             
             # 마지막 URL 저장 (다음 요청의 Referer로 사용)
             self._last_url = url

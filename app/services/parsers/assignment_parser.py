@@ -27,11 +27,6 @@ class AssignmentParser(ContentParser):
             
             if not assignment_table:
                 logger.warning("과제 테이블을 찾을 수 없습니다.")
-                # 대안 테이블 확인
-                all_tables = soup.find_all('table')
-                logger.warning(f"[DEBUG] 과제 전체 table 태그 수: {len(all_tables)}")
-                for i, table in enumerate(all_tables):
-                    logger.warning(f"[DEBUG] 테이블 {i+1} 클래스: {table.get('class', 'None')}")
                 return []
                 
             # 과제 행 찾기 (tbody 내부 tr 사용)

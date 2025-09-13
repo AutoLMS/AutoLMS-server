@@ -15,11 +15,6 @@ class NoticeParser(ContentParser):
             if not html:
                 return []
                 
-            # 임시 디버그 로깅 - HTML 내용 확인
-            logger.warning(f"[DEBUG] HTML 응답 길이: {len(html)} 바이트")
-            logger.warning(f"[DEBUG] HTML 응답 내용 샘플: {html[:500]}...")
-            if len(html) <= 400:  # 짧은 응답이면 전체 내용 출력
-                logger.warning(f"[DEBUG] HTML 전체 내용: {html}")
                 
             soup = BeautifulSoup(html, 'html.parser')
             logger.info("공지사항 HTML 파싱 시작")
@@ -29,9 +24,6 @@ class NoticeParser(ContentParser):
 
             if not notice_rows:
                 logger.warning("공지사항 목록을 찾을 수 없습니다.")
-                # 대안 셀렉터로 시도
-                alternative_rows = soup.find_all('tr')
-                logger.warning(f"[DEBUG] 전체 tr 태그 수: {len(alternative_rows)}")
                 return []
 
             notices = []

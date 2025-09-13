@@ -58,7 +58,16 @@ class MaterialRepository:
                 kwargs["material_id"] = kwargs["article_id"]
             
             # Composite ID 자동 생성
-            composite_id = generate_material_id(kwargs['course_id'], kwargs['material_id'])
+            material_id = kwargs['material_id']
+            
+            # material_id가 이미 composite 형태인지 확인
+            if "_" in material_id and material_id.startswith(kwargs['course_id']):
+                # 이미 composite 형태이면 그대로 사용
+                composite_id = material_id
+            else:
+                # 기존 방식: course_id + "_" + material_id
+                composite_id = generate_material_id(kwargs['course_id'], material_id)
+            
             kwargs['id'] = composite_id
             
             result = self.supabase.table(self.table_name)\
@@ -86,7 +95,16 @@ class MaterialRepository:
                 kwargs["material_id"] = kwargs["article_id"]
             
             # Composite ID 자동 생성
-            composite_id = generate_material_id(kwargs['course_id'], kwargs['material_id'])
+            material_id = kwargs['material_id']
+            
+            # material_id가 이미 composite 형태인지 확인
+            if "_" in material_id and material_id.startswith(kwargs['course_id']):
+                # 이미 composite 형태이면 그대로 사용
+                composite_id = material_id
+            else:
+                # 기존 방식: course_id + "_" + material_id
+                composite_id = generate_material_id(kwargs['course_id'], material_id)
+            
             kwargs['id'] = composite_id
             
             result = self.supabase.table(self.table_name)\

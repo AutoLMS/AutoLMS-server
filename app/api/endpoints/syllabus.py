@@ -21,14 +21,14 @@ async def get_syllabus(
 ) -> Any:
     """특정 강의의 강의계획서 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="강의를 찾을 수 없습니다."
         )
 
-    syllabus = await syllabus_service.get_syllabus(current_user["id"], course_id)
+    syllabus = await syllabus_service.get_syllabus(user_id=current_user["id"], course_id=course_id)
     if not syllabus:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -46,7 +46,7 @@ async def refresh_syllabus(
 ) -> Any:
     """특정 강의의 강의계획서 새로고침"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

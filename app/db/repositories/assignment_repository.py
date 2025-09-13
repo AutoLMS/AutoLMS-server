@@ -3,6 +3,8 @@ from typing import List, Dict, Any, Optional
 from supabase import Client
 from app.core.supabase_client import get_supabase_client
 
+from app.core.id_utils import generate_notice_id, is_valid_composite_id
+
 logger = logging.getLogger(__name__)
 
 class AssignmentRepository:
@@ -62,6 +64,20 @@ class AssignmentRepository:
             if "assignment_id" not in kwargs and "article_id" in kwargs:
                 kwargs["assignment_id"] = kwargs["article_id"]
             
+            # Composite ID 자동 생성
+            if "course_id" in kwargs and "assignment_id" in kwargs:
+                assignment_id = kwargs["assignment_id"]
+                
+                # assignment_id가 이미 composite 형태인지 확인
+                if is_valid_composite_id(assignment_id) and assignment_id.startswith(kwargs["course_id"]):
+                    # 이미 composite 형태이면 그대로 사용
+                    composite_id = assignment_id
+                else:
+                    # 기존 방식: course_id + "_" + assignment_id
+                    composite_id = generate_notice_id(kwargs["course_id"], assignment_id)
+                
+                kwargs["id"] = composite_id
+            
             result = self.supabase.table(self.table_name)\
                 .insert(kwargs)\
                 .execute()
@@ -81,8 +97,22 @@ class AssignmentRepository:
             if "assignment_id" not in kwargs and "article_id" in kwargs:
                 kwargs["assignment_id"] = kwargs["article_id"]
             
+            # Composite ID 자동 생성
+            if "course_id" in kwargs and "assignment_id" in kwargs:
+                assignment_id = kwargs["assignment_id"]
+                
+                # assignment_id가 이미 composite 형태인지 확인
+                if is_valid_composite_id(assignment_id) and assignment_id.startswith(kwargs["course_id"]):
+                    # 이미 composite 형태이면 그대로 사용
+                    composite_id = assignment_id
+                else:
+                    # 기존 방식: course_id + "_" + assignment_id
+                    composite_id = generate_notice_id(kwargs["course_id"], assignment_id)
+                
+                kwargs["id"] = composite_id
+            
             result = self.supabase.table(self.table_name)\
-                .upsert(kwargs, on_conflict="assignment_id,course_id,user_id")\
+                .upsert(kwargs, on_conflict="id")\
                 .execute()
             
             if result.data:
