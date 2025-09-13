@@ -319,14 +319,39 @@ class MaterialService(BaseService):
         except Exception as e:
             logger.error(f"강의자료 ID 조회 중 오류: {str(e)}")
             return None
-        
+
     def sanitize_filename(self, filename: str) -> str:
-     # 용량 정보 제거 (중간/끝 모두)
-     filename = re.sub(r'_\d+(\.\d+)?(MB|KB|GB|B)', '', filename, flags=re.IGNORECASE)
-     
-     # 공백/연속 공백 → '_'
-     filename = re.sub(r'\s+', '_', filename)
-     
-     # 허용 문자만 남기고 나머지는 제거
-     filename = re.sub(r'[^0-9A-Za-z가-힣._-]', '', filename)
-     return filename
+        """
+        Supabase Storage 업로드용 안전한 파일명으로 변환
+        - 용량 정보(_1.1MB, _2.5KB 등) 제거
+        - 한글, 공백, 특수문자 제거
+        - 영문, 숫자, 점, 언더바만 허용
+        """
+        logger.info(f"원본 파일명: {filename}")
+        
+        # 1. 용량 정보 제거 - 더 간단하고 안전한 패턴
+        # 예: "파일명.pdf (3MB)" -> "파일명.pdf"
+        filename = re.sub(r'\s*\(\d+(\.\d+)?(MB|KB|GB|B)\)\s*', '', filename, flags=re.IGNORECASE)
+        
+        # 2. 끝에 있는 용량 정보 제거
+        # 예: "파일명_1.1MB.pdf" -> "파일명.pdf"
+        filename = re.sub(r'_\d+(\.\d+)?(MB|KB|GB|B)', '', filename, flags=re.IGNORECASE)
+        
+        # 3. 공백을 언더바로 변경
+        filename = filename.replace(' ', '_')
+        
+        # 4. 한글, 특수문자 제거 - 영문, 숫자, 점, 언더바, 하이픈만 허용
+        filename = re.sub(r'[^0-9A-Za-z._-]', '', filename)
+        
+        # 5. 연속된 언더바나 점 정리
+        filename = re.sub(r'[_.-]{2,}', '_', filename)
+        
+        # 6. 시작/끝 언더바나 점 제거
+        filename = filename.strip('_.-')
+        
+        # 7. 빈 파일명 방지
+        if not filename:
+            filename = "unnamed_file"
+        
+        logger.info(f"정리된 파일명: {filename}")
+        return filename
