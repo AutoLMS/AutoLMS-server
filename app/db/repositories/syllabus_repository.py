@@ -15,6 +15,7 @@ class SyllabusRepository:
     async def get_by_id(self, syllabus_id: str) -> Optional[Dict[str, Any]]:
         """ID로 강의계획서 조회"""
         try:
+            # 모든 필드를 포함하여 조회 (새로운 구조화된 필드들 + 기존 jsonb 필드들)
             result = self.supabase.table(self.table_name)\
                 .select("*")\
                 .eq("id", syllabus_id)\

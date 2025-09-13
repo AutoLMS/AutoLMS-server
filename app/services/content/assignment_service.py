@@ -188,11 +188,7 @@ class AssignmentService(BaseService):
                 logger.info(f"강의 {course_id}의 과제가 없습니다.")
                 return result
             
-            # 4. 기존 과제 조회
-            existing_assignments = await self.repository.get_by_course_id(course_id)
-            existing_assignment_ids = {assignment.assignment_id for assignment in existing_assignments}
-            
-            # 5. 각 과제 처리
+            # 4. 각 과제 처리 (DB 레벨 중복 체크로 대체)
             for assignment in assignments:
                 result["count"] += 1
                 assignment_id = assignment.get("assignment_id")
@@ -202,9 +198,6 @@ class AssignmentService(BaseService):
                     continue
                 
                 try:
-                    # 이미 존재하는 과제 건너뛰기
-                    if assignment_id in existing_assignment_ids:
-                        continue
                     
                     # 상세 페이지 요청
                     detail_url = assignment.get("url")
@@ -236,8 +229,9 @@ class AssignmentService(BaseService):
                         'status': assignment.get('status', 'active')
                     }
                     
-                    created_assignment = await self.repository.create(**assignment_data)
-                    result["new"] += 1
+                    upserted_assignment = await self.repository.upsert(**assignment_data)
+                    if upserted_assignment:
+                        result["new"] += 1
                     
                     # 첨부파일 처리
                     if auto_download and assignment.get("attachments"):
@@ -245,7 +239,7 @@ class AssignmentService(BaseService):
                             user_id,
                             eclass_session,
                             assignment["attachments"],
-                            created_assignment.id,
+                            upserted_assignment.get('id'),
                             course_id
                         )
                         logger.info(f"처리된 첨부파일 수: {attachment_count}")
