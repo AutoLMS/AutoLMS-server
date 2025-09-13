@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Any, List, Optional
 
 from app.services.auth_service import AuthService
@@ -220,7 +221,10 @@ class MaterialService(BaseService):
                     logger.warning(f"첨부파일 정보 부족: {attachment}")
                     continue
 
-                logger.info(f"첨부파일 처리 시작: {file_name}")
+                # 파일명 정리 (sanitize)
+                safe_file_name = self.sanitize_filename(file_name)
+
+                logger.info(f"첨부파일 처리 시작: {file_name} -> {safe_file_name}")
 
                 # 이클래스에서 파일 다운로드
                 try:
@@ -243,10 +247,10 @@ class MaterialService(BaseService):
                     logger.error(f"파일 다운로드 중 오류: {str(e)}")
                     continue
 
-                # 스토리지에 업로드
+                # 스토리지에 업로드 (안전한 파일명 사용)
                 storage_path = await self.storage_service.upload_file(
                     file_content,
-                    file_name,
+                    safe_file_name,
                     course_id,
                     "materials"  # 콘텐츠 타입
                 )
@@ -257,11 +261,12 @@ class MaterialService(BaseService):
 
                 logger.info(f"파일 업로드 완료: {storage_path}")
 
-                # 첨부파일 메타데이터 저장
+                # 첨부파일 메타데이터 저장 (원본 파일명과 안전한 파일명 모두 저장)
                 attachment_data = {
                     "source_type": "materials",
                     "source_id": str(source_id),
-                    "file_name": file_name,
+                    "file_name": safe_file_name,  # 실제 저장된 파일명
+                    # "original_file_name": file_name,  # 원본 파일명 (표시용)
                     "file_size": file_size,
                     "content_type": attachment.get("content_type", ""),
                     "storage_path": storage_path,
@@ -314,3 +319,14 @@ class MaterialService(BaseService):
         except Exception as e:
             logger.error(f"강의자료 ID 조회 중 오류: {str(e)}")
             return None
+        
+    def sanitize_filename(self, filename: str) -> str:
+     # 용량 정보 제거 (중간/끝 모두)
+     filename = re.sub(r'_\d+(\.\d+)?(MB|KB|GB|B)', '', filename, flags=re.IGNORECASE)
+     
+     # 공백/연속 공백 → '_'
+     filename = re.sub(r'\s+', '_', filename)
+     
+     # 허용 문자만 남기고 나머지는 제거
+     filename = re.sub(r'[^0-9A-Za-z가-힣._-]', '', filename)
+     return filename
