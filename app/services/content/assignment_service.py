@@ -107,8 +107,8 @@ class AssignmentService(BaseService):
             # 참고: 메모리 객체의 속성을 추가하는 방식으로 첨부파일 정보를 추가
             # 실제 DB 모델에는 이 필드가 없지만 응답 시 포함됨
             try:
-                attachments = await self.storage_service.get_attachments_by_source(
-                    "assignments", assignment.id, user_id
+                attachments = await self.attachment_repository.get_by_source(
+                    str(assignment.id), "assignments"
                 )
                 if hasattr(assignment, "attachments"):
                     assignment.attachments = attachments
@@ -236,7 +236,7 @@ class AssignmentService(BaseService):
                         'status': assignment.get('status', 'active')
                     }
                     
-                    created_assignment = await self.repository.create(assignment_data)
+                    created_assignment = await self.repository.create(**assignment_data)
                     result["new"] += 1
                     
                     # 첨부파일 처리

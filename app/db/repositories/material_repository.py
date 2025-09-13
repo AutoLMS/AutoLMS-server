@@ -1,8 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
-from supabase import Client, create_client
+from supabase import Client
 from app.core.supabase_client import get_supabase_client
-from app.core.config import settings
 from app.core.id_utils import generate_material_id
 
 logger = logging.getLogger(__name__)
@@ -10,13 +9,8 @@ logger = logging.getLogger(__name__)
 class MaterialRepository:
     """Supabase를 사용한 학습자료 저장소"""
     
-    def __init__(self, use_service_key: bool = False):
-        if use_service_key:
-            # Service Key 사용 (RLS 우회)
-            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-        else:
-            # 일반 클라이언트
-            self.supabase: Client = get_supabase_client()
+    def __init__(self):
+        self.supabase: Client = get_supabase_client()
         self.table_name = "materials"
     
     async def get_by_id(self, material_id: str) -> Optional[Dict[str, Any]]:

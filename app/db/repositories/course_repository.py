@@ -1,19 +1,13 @@
 from typing import List, Optional, Dict, Any
-from supabase import Client, create_client
+from supabase import Client
 
 from app.core.supabase_client import get_supabase_client
-from app.core.config import settings
 
 class CourseRepository:
     """코스 정보 저장소"""
     
-    def __init__(self, use_service_key: bool = False):
-        if use_service_key:
-            # Service Key 사용 (RLS 우회)
-            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-        else:
-            # 일반 클라이언트
-            self.supabase: Client = get_supabase_client()
+    def __init__(self):
+        self.supabase: Client = get_supabase_client()
         self.table_name = "courses"
     
     async def get_by_user_id(self, user_id: str) -> List[Dict[str, Any]]:
@@ -21,7 +15,7 @@ class CourseRepository:
         try:
             # user_courses 테이블을 통해 사용자의 강의 조회
             from app.db.repositories.user_courses_repository import UserCoursesRepository
-            user_courses_repo = UserCoursesRepository(use_service_key=True)  # Service key 사용
+            user_courses_repo = UserCoursesRepository()
             user_courses = await user_courses_repo.get_user_courses(user_id)
             
             # 강의 정보만 추출
@@ -93,7 +87,7 @@ class CourseRepository:
                 
             # 2. 사용자를 강의에 등록
             from app.db.repositories.user_courses_repository import UserCoursesRepository
-            user_courses_repo = UserCoursesRepository(use_service_key=True)
+            user_courses_repo = UserCoursesRepository()
             await user_courses_repo.enroll_user_in_course(user_id, course_data['course_id'])
             
             return course_result

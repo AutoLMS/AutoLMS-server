@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List, Union
-import os
 
 class Settings(BaseSettings):
     # 서버 설정
@@ -62,7 +61,3 @@ class Settings(BaseSettings):
         return []
 
 settings = Settings()
-
-# DATABASE_URL에서 SQLALCHEMY_DATABASE_URI를 자동으로 설정
-if settings.DATABASE_URL and not settings.SQLALCHEMY_DATABASE_URI:
-    settings.SQLALCHEMY_DATABASE_URI = settings.DATABASE_URL

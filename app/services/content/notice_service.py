@@ -181,7 +181,7 @@ class NoticeService(BaseService):
                         'views': notice.get('views'),
                     }
                     
-                    created_notice = await self.repository.create(notice_data)
+                    created_notice = await self.repository.create(**notice_data)
                     result["new"] += 1
                     
                     # 첨부파일 처리

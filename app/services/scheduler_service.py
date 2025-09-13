@@ -184,8 +184,9 @@ class SchedulerService:
             # 현재 시간에서 24시간 이내에 활동한 사용자들 조회
             cutoff_time = (datetime.now() - timedelta(hours=24)).isoformat()
             
+            # sessions와 users 테이블 JOIN하여 eclass_username 조회
             result = self.supabase.table('sessions')\
-                .select('user_id, eclass_username')\
+                .select('user_id, users!sessions_user_id_fkey(eclass_username)')\
                 .gt('last_used', cutoff_time)\
                 .eq('is_active', True)\
                 .execute()

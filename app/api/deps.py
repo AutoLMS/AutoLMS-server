@@ -106,7 +106,7 @@ def get_attachment_repository() -> AttachmentRepository:
     return AttachmentRepository()
 
 def get_syllabus_repository() -> SyllabusRepository:
-    """SyllabusRepository 제공"""
+    """SyllabusRepository 제공 (Service Key로 RLS 우회)"""
     return SyllabusRepository()
 
 # 기본 서비스 의존성
@@ -278,5 +278,3 @@ async def get_current_user(
             detail="토큰 검증 중 오류가 발생했습니다.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-# Supabase 기반 데이터베이스 - 세션 의존성 불필요

@@ -31,7 +31,7 @@ def generate_notice_id(course_id: str, notice_id: str) -> str:
     return f"{course_id}_{notice_id}"
 
 
-def parse_material_id(composite_id: str) -> tuple[str, str]:
+def parse_material_id(composite_id: str) -> list[str]:
     """
     강의자료 Composite ID 파싱
     

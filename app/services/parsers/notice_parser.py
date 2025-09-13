@@ -125,7 +125,7 @@ class NoticeParser(ContentParser):
                     detail['content_html'] = str(textviewer)
 
             # 기본 첨부파일 추출 (페이지에 있는 경우)
-            attachments = self.parse_attacthments(html)
+            attachments = self.parse_attachments(html)
             if attachments:
                 detail['attachments'] = attachments
 

@@ -151,15 +151,14 @@ class MaterialService(BaseService):
                     
                     # DB 저장
                     material_data = {
-                        'article_id': article_id,
+                        'user_id': user_id,  # 필수 필드 추가
+                        'material_id': article_id, 
                         'course_id': course_id,
                         'title': material.get('title'),
                         'content': material_detail.get('content', ''),
-                        'content_html': material_detail.get('content_html', ''),
                         'author': material.get('author'),
                         'date': material.get('date'),
-                        'views': material.get('views'),
-                        'video_url': material_detail.get('video_url', '')
+                        'views': material.get('views')
                     }
                     
                     created_material = await self.repository.create(material_data)

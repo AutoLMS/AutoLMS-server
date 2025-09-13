@@ -7,13 +7,8 @@ from app.core.config import settings
 class UserCoursesRepository:
     """사용자-강의 매핑 저장소"""
     
-    def __init__(self, use_service_key: bool = False):
-        if use_service_key:
-            # Service Key 사용 (RLS 우회)
-            self.supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-        else:
-            # 일반 클라이언트
-            self.supabase: Client = get_supabase_client()
+    def __init__(self):
+        self.supabase: Client = get_supabase_client()
         self.table_name = "user_courses"
     
     async def get_user_courses(self, user_id: str) -> List[Dict[str, Any]]:
