@@ -132,11 +132,7 @@ class NoticeService(BaseService):
                 logger.info(f"강의 {course_id}의 공지사항이 없습니다.")
                 return result
             
-            # 4. 기존 공지사항 조회
-            existing_notices = await self.repository.get_by_course_id(course_id)
-            existing_article_ids = {notice.get('article_id') for notice in existing_notices}
-            
-            # 5. 각 공지사항 처리
+            # 4. 각 공지사항 처리 (DB 레벨 중복 체크로 대체)
             for notice in notices:
                 result["count"] += 1
                 article_id = notice.get("article_id")
@@ -146,9 +142,6 @@ class NoticeService(BaseService):
                     continue
                 
                 try:
-                    # 이미 존재하는 공지사항 건너뛰기
-                    if article_id in existing_article_ids:
-                        continue
                     
                     # 상세 페이지 요청
                     detail_url = notice.get("url")
@@ -181,15 +174,16 @@ class NoticeService(BaseService):
                         'views': notice.get('views'),
                     }
                     
-                    created_notice = await self.repository.create(**notice_data)
-                    result["new"] += 1
+                    upserted_notice = await self.repository.upsert(**notice_data)
+                    if upserted_notice:
+                        result["new"] += 1
                     
                     # 첨부파일 처리
                     if auto_download and notice.get("attachments"):
                         attachment_count = await self._process_attachments(
                             eclass_session,
                             notice["attachments"],
-                            created_notice.get('id'),
+                            upserted_notice.get('id'),
                             course_id
                         )
                         logger.info(f"처리된 첨부파일 수: {attachment_count}")

@@ -113,11 +113,7 @@ class MaterialService(BaseService):
                 logger.info(f"강의 {course_id}의 강의자료가 없습니다.")
                 return result
             
-            # 4. 기존 강의자료 조회
-            existing_materials = await self.repository.get_by_course_id(course_id)
-            existing_article_ids = {material.article_id for material in existing_materials}
-            
-            # 5. 각 강의자료 처리
+            # 4. 각 강의자료 처리 (DB 레벨 중복 체크로 대체)
             for material in materials:
                 result["count"] += 1
                 article_id = material.get("article_id")
@@ -127,9 +123,6 @@ class MaterialService(BaseService):
                     continue
                 
                 try:
-                    # 이미 존재하는 강의자료 건너뛰기
-                    if article_id in existing_article_ids:
-                        continue
                     
                     # 상세 페이지 요청
                     detail_url = material.get("url")
@@ -161,15 +154,16 @@ class MaterialService(BaseService):
                         'views': material.get('views')
                     }
                     
-                    created_material = await self.repository.create(material_data)
-                    result["new"] += 1
+                    upserted_material = await self.repository.upsert(**material_data)
+                    if upserted_material:
+                        result["new"] += 1
                     
                     # 첨부파일 처리
                     if auto_download and material.get("attachments"):
                         attachment_count = await self._process_attachments(
                             eclass_session,
                             material["attachments"],
-                            created_material.id,
+                            upserted_material.get('id'),
                             course_id
                         )
                         logger.info(f"처리된 첨부파일 수: {attachment_count}")
